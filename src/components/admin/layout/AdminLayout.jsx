@@ -5,6 +5,10 @@ import styles from "./AdminLayout.module.css";
 export default function AdminLayout({ children }) {
   const { user, handleLogout } = useAuth();
   const { pathname } = useLocation();
+  const displayUser =
+    typeof user === "string"
+      ? user
+      : user?.username || user?.correo || "Usuario";
 
   const pageTitles = {
     "/admin": "Dashboard",
@@ -122,7 +126,7 @@ export default function AdminLayout({ children }) {
           <h1 className={styles.headerTitle}>
             {pageTitles[pathname] || "Panel Admin"}
           </h1>
-          <span className={styles.headerUser}>{user}</span>
+          <span className={styles.headerUser}>{displayUser}</span>
         </header>
         <section className={styles.content}>{children}</section>
       </main>
