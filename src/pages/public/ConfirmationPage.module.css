@@ -1,0 +1,73 @@
+.page {
+  min-height: 100vh;
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 48px;
+  padding-top: 40px;
+  margin-top: 40px;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  color: #1a1a2e;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.card p {
+  color: #666;
+  font-size: 15px;
+  margin: 0 0 24px 0;
+}
+
+.infoBox {
+  background: #f8f8ff;
+  border: 1.5px solid #7c83fd;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.infoRow:last-child {
+  margin-bottom: 0;
+}
+
+.btnPrimary {
+  padding: 12px 32px;
+  background: #7c83fd;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: #5c63d8;
+}

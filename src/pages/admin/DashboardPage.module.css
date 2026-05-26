@@ -1,0 +1,102 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.welcome {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 24px;
+  border-left: 4px solid #7c83fd;
+}
+
+.welcome h2 {
+  margin: 0 0 6px 0;
+  color: #1a1a2e;
+  font-size: 20px;
+}
+
+.welcome p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.statCard {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 3px solid #7c83fd;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.statSub {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.modulesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.moduleCard {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  border: 2px solid transparent;
+}
+
+.moduleCard:hover {
+  border-color: #7c83fd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 131, 253, 0.15);
+}
+
+.moduleIcon {
+  font-size: 32px;
+}
+
+.moduleName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+  text-align: center;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+}
