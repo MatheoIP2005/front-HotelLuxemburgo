@@ -36,12 +36,8 @@ export default function FacturasPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>GUID</th>
               <th>Número</th>
               <th>Tipo</th>
-              <th>Reserva GUID</th>
-              <th>Cliente GUID</th>
-              <th>Sucursal GUID</th>
               <th>Total</th>
               <th>Saldo Pendiente</th>
               <th>Estado</th>
@@ -51,14 +47,14 @@ export default function FacturasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={10} className={styles.loadingMsg}>
+                <td colSpan={6} className={styles.loadingMsg}>
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && facturas.length === 0 && (
               <tr>
-                <td colSpan={10} className={styles.emptyMsg}>
+                <td colSpan={6} className={styles.emptyMsg}>
                   No hay registros
                 </td>
               </tr>
@@ -66,12 +62,8 @@ export default function FacturasPage() {
             {!loading &&
               facturas.map((f) => (
                 <tr key={f.facturaGuid ?? f.guidFactura}>
-                  <td>{f.facturaGuid ?? f.guidFactura}</td>
                   <td>{f.numeroFactura}</td>
                   <td>{f.tipoFactura}</td>
-                  <td>{f.reservaGuid ?? "N/A"}</td>
-                  <td>{f.clienteGuid ?? "N/A"}</td>
-                  <td>{f.sucursalGuid ?? "N/A"}</td>
                   <td>${f.total}</td>
                   <td>${f.saldoPendiente}</td>
                   <td>

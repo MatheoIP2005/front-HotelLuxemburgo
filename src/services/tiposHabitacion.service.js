@@ -7,18 +7,28 @@ const toNumber = (value, fallback = 0) =>
 const toNullableNumber = (value) =>
   value === null || value === undefined || value === "" ? null : Number(value);
 
-const toCreateTipoHabitacionPayload = (data = {}) => ({
-  codigoTipoHabitacion: data.codigoTipoHabitacion ?? data.codigo_tipo_habitacion ?? "",
-  nombreTipoHabitacion: data.nombreTipoHabitacion ?? data.nombre_tipo_habitacion ?? "",
-  descripcion: data.descripcion ?? null,
-  capacidadAdultos: toNumber(data.capacidadAdultos ?? data.capacidad_adultos, 0),
-  capacidadNinos: toNumber(data.capacidadNinos ?? data.capacidad_ninos, 0),
-  tipoCama: data.tipoCama ?? data.tipo_cama ?? null,
-  areaM2: toNullableNumber(data.areaM2 ?? data.area_m2),
-  permiteReservaPublica: Boolean(
-    data.permiteReservaPublica ?? data.permite_reserva_publica ?? true
-  ),
-});
+const toCreateTipoHabitacionPayload = (data = {}) => {
+  const capacidadAdultos = toNumber(data.capacidadAdultos ?? data.capacidad_adultos, 0);
+  const capacidadNinos = toNumber(data.capacidadNinos ?? data.capacidad_ninos, 0);
+  const capacidadTotal = toNumber(
+    data.capacidadTotal ?? data.capacidad_total,
+    capacidadAdultos + capacidadNinos
+  );
+
+  return {
+    codigoTipoHabitacion: data.codigoTipoHabitacion ?? data.codigo_tipo_habitacion ?? "",
+    nombreTipoHabitacion: data.nombreTipoHabitacion ?? data.nombre_tipo_habitacion ?? "",
+    descripcion: data.descripcion ?? null,
+    capacidadAdultos,
+    capacidadNinos,
+    capacidadTotal,
+    tipoCama: data.tipoCama ?? data.tipo_cama ?? null,
+    areaM2: toNullableNumber(data.areaM2 ?? data.area_m2),
+    permiteReservaPublica: Boolean(
+      data.permiteReservaPublica ?? data.permite_reserva_publica ?? true
+    ),
+  };
+};
 
 const toUpdateTipoHabitacionPayload = (data = {}) => ({
   ...toCreateTipoHabitacionPayload(data),

@@ -5,6 +5,158 @@ import useBooking from '../../hooks/useBooking';
 import Navbar from '../../components/public/Navbar';
 import styles from './AccommodationDetailPage.module.css';
 
+const trimText = (value) => String(value ?? '').trim();
+
+const getImageUrlFromRecord = (record, directKeys = []) => {
+  for (const key of directKeys) {
+    const candidate = record?.[key];
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return '';
+};
+
+const getFirstStringImage = (items) =>
+  Array.isArray(items)
+    ? items.find((item) => typeof item === 'string' && item.trim())?.trim() || ''
+    : '';
+
+const getImageUrlFromCollection = (collection) => {
+  if (!Array.isArray(collection) || collection.length === 0) return '';
+
+  const directStringImage = getFirstStringImage(collection);
+  if (directStringImage) return directStringImage;
+
+  const principal =
+    collection.find((item) => item?.esPrincipal || item?.es_principal || item?.principal) ??
+    collection[0];
+
+  return getImageUrlFromRecord(principal, [
+    'urlImagen',
+    'url_imagen',
+    'imagenUrl',
+    'imagen_url',
+    'secureUrl',
+    'url',
+  ]);
+};
+
+const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) => {
+  for (const key of nestedKeys) {
+    const nested = source?.[key];
+    if (!nested || typeof nested !== 'object') continue;
+
+    const direct = getImageUrlFromRecord(nested, directKeys);
+    if (direct) return direct;
+
+    const nestedCollection = [
+      nested?.tipoHabitacionImagenes,
+      nested?.imagenesTipoHabitacion,
+      nested?.habitacionImagenes,
+      nested?.imagenesHabitacion,
+      nested?.imagenes,
+      nested?.galeria,
+      nested?.fotos,
+      nested?.sucursalImagenes,
+      nested?.imagenesSucursal,
+    ]
+      .map((items) => getImageUrlFromCollection(items))
+      .find(Boolean);
+
+    if (nestedCollection) return nestedCollection;
+  }
+
+  return '';
+};
+
+const resolveRoomImageUrl = (room, propiedad) => {
+  const direct = getImageUrlFromRecord(room, [
+    'tipoHabitacionImagenPrincipalUrl',
+    'tipoHabitacionImagenUrl',
+    'habitacionImagenPrincipalUrl',
+    'habitacionImagenUrl',
+    'portadaHabitacionUrl',
+    'coverHabitacionUrl',
+    'fotoHabitacionUrl',
+    'fotoTipoHabitacionUrl',
+    'imagenPrincipalUrl',
+    'imagenTipoHabitacionUrl',
+    'imagenHabitacionUrl',
+    'urlImagen',
+    'imagenUrl',
+  ]);
+  if (direct) return direct;
+
+  const nestedDirect = getImageUrlFromNestedObject(
+    room,
+    ['tipoHabitacion', 'habitacion', 'roomType', 'room', 'tipo', 'detalle', 'data'],
+    [
+      'tipoHabitacionImagenPrincipalUrl',
+      'tipoHabitacionImagenUrl',
+      'habitacionImagenPrincipalUrl',
+      'habitacionImagenUrl',
+      'portadaHabitacionUrl',
+      'coverHabitacionUrl',
+      'fotoHabitacionUrl',
+      'fotoTipoHabitacionUrl',
+      'imagenPrincipalUrl',
+      'imagenTipoHabitacionUrl',
+      'imagenHabitacionUrl',
+      'imagenUrl',
+      'urlImagen',
+    ]
+  );
+  if (nestedDirect) return nestedDirect;
+
+  const nested = [
+    room?.tipoHabitacionImagenes,
+    room?.imagenesTipoHabitacion,
+    room?.habitacionImagenes,
+    room?.imagenesHabitacion,
+    room?.imagenes,
+    room?.galeria,
+    room?.fotos,
+  ]
+    .map((items) => getImageUrlFromCollection(items))
+    .find(Boolean);
+  if (nested) return nested;
+
+  const matchingTipo = Array.isArray(propiedad?.tiposHabitacion)
+    ? propiedad.tiposHabitacion.find(
+        (tipo) =>
+          String(tipo?.tipoHabitacionGuid ?? '') === String(room?.tipoHabitacionGuid ?? '')
+      )
+    : null;
+
+  if (matchingTipo && matchingTipo !== room) {
+    const matchingTipoImage = resolveRoomImageUrl(matchingTipo, null);
+    if (matchingTipoImage) return matchingTipoImage;
+  }
+
+  const propertyRoomImages = [
+    propiedad?.tipoHabitacionImagenes,
+    propiedad?.imagenesTipoHabitacion,
+    propiedad?.habitacionImagenes,
+    propiedad?.imagenesHabitacion,
+  ]
+    .flatMap((items) => (Array.isArray(items) ? items : []))
+    .filter((item) => {
+      const tipoGuid = item?.tipoHabitacionGuid ?? item?.tipo_habitacion_guid;
+      const habitacionGuid = item?.habitacionGuid ?? item?.habitacion_guid;
+      return (
+        (tipoGuid && String(tipoGuid) === String(room?.tipoHabitacionGuid ?? '')) ||
+        (habitacionGuid && String(habitacionGuid) === String(room?.habitacionGuid ?? ''))
+      );
+    });
+
+  const matchedImage = getImageUrlFromCollection(propertyRoomImages);
+  if (matchedImage) return matchedImage;
+
+  return '';
+};
+
 const formatLocation = (propiedad) =>
   [propiedad?.ciudad, propiedad?.pais].filter(Boolean).join(', ');
 
@@ -37,6 +189,9 @@ const normalizeRoomOptions = (propiedad) => {
         tipoHabitacionGuid: tipo.tipoHabitacionGuid ?? null,
         habitacionGuid: tipo.habitacionGuid ?? null,
         tarifaGuid: tarifaRelacionada?.tarifaGuid ?? tipo.tarifaGuid ?? null,
+        imagenUrl:
+          getFirstStringImage(tipo.imagenes) ||
+          resolveRoomImageUrl(tipo, propiedad),
       };
     });
   }
@@ -60,6 +215,9 @@ const normalizeRoomOptions = (propiedad) => {
       tipoHabitacionGuid: habitacion.tipoHabitacionGuid ?? null,
       habitacionGuid: habitacion.habitacionGuid ?? null,
       tarifaGuid: habitacion.tarifaGuid ?? tarifasActivas[0]?.tarifaGuid ?? null,
+      imagenUrl:
+        getFirstStringImage(habitacion.imagenes) ||
+        resolveRoomImageUrl(habitacion, propiedad),
     }));
   }
 
@@ -203,6 +361,16 @@ export default function AccommodationDetailPage() {
                           habitacionSeleccionada?.id === hab.id ? '#7c83fd' : '#eee',
                       }}
                     >
+                      <div className={styles.roomMedia}>
+                        {hab.imagenUrl ? (
+                          <img
+                            src={hab.imagenUrl}
+                            alt={trimText(hab.nombre) || 'Habitación disponible'}
+                          />
+                        ) : (
+                          <div className={styles.roomImageFallback}>Sin imagen</div>
+                        )}
+                      </div>
                       <div className={styles.roomInfo}>
                         <h4>{hab.nombre}</h4>
                         <p>{hab.tipoCama}</p>

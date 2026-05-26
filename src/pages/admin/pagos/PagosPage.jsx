@@ -7,8 +7,6 @@ export default function PagosPage() {
   const navigate = useNavigate();
   const { pagos, loading, error, handleAprobar, fetchPagos } = usePagos();
   const [filters, setFilters] = useState({
-    facturaGuid: "",
-    reservaGuid: "",
     estado: "",
     metodo: "",
   });
@@ -47,18 +45,6 @@ export default function PagosPage() {
       <div className={styles.topBar}>
         <h2>Pagos</h2>
         <div>
-          <input
-            name="facturaGuid"
-            placeholder="Factura GUID"
-            value={filters.facturaGuid}
-            onChange={handleChange}
-          />
-          <input
-            name="reservaGuid"
-            placeholder="Reserva GUID"
-            value={filters.reservaGuid}
-            onChange={handleChange}
-          />
           <select name="estado" value={filters.estado} onChange={handleChange}>
             <option value="">Todos los estados</option>
             <option value="PEN">PEN</option>
@@ -98,7 +84,6 @@ export default function PagosPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>GUID</th>
               <th>Monto</th>
               <th>Método</th>
               <th>Estado</th>
@@ -109,14 +94,14 @@ export default function PagosPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className={styles.loadingMsg}>
+                <td colSpan={5} className={styles.loadingMsg}>
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && pagos.length === 0 && (
               <tr>
-                <td colSpan={6} className={styles.emptyMsg}>
+                <td colSpan={5} className={styles.emptyMsg}>
                   No hay registros
                 </td>
               </tr>
@@ -124,7 +109,6 @@ export default function PagosPage() {
             {!loading &&
               pagos.map((p) => (
                 <tr key={p.pagoGuid}>
-                  <td>{`${p.pagoGuid?.slice(0, 8)}...`}</td>
                   <td>${p.monto}</td>
                   <td>{p.metodoPago}</td>
                   <td>

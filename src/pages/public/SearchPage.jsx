@@ -1,9 +1,155 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchAccommodations } from '../../services/accommodations.service';
+import { getAccommodation, searchAccommodations } from '../../services/accommodations.service';
 import useBooking from '../../hooks/useBooking';
+import MinimalDateInput from '../../components/public/MinimalDateInput';
 import Navbar from '../../components/public/Navbar';
 import styles from './SearchPage.module.css';
+
+const trimText = (value) => String(value ?? '').trim();
+
+const getTodayIsoDate = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+};
+
+const addDaysToIsoDate = (isoDate, amount) => {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const nextDate = new Date(year, month - 1, day);
+  nextDate.setDate(nextDate.getDate() + amount);
+  const nextYear = nextDate.getFullYear();
+  const nextMonth = String(nextDate.getMonth() + 1).padStart(2, '0');
+  const nextDay = String(nextDate.getDate()).padStart(2, '0');
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+};
+
+const getOptionalChildrenCount = (value) =>
+  value === '' || value === null || value === undefined ? 0 : Number(value);
+
+const buildSearchQuery = (search) => {
+  const params = new URLSearchParams({
+    fechaInicio: search.fechaInicio,
+    fechaFin: search.fechaFin,
+    numAdultos: search.numAdultos,
+    numHabitaciones: search.numHabitaciones,
+  });
+
+  if (search.numNinos !== '') {
+    params.set('numNinos', search.numNinos);
+  }
+
+  return params.toString();
+};
+
+const getImageUrlFromRecord = (record, directKeys = []) => {
+  for (const key of directKeys) {
+    const candidate = record?.[key];
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return '';
+};
+
+const getFirstStringImage = (items) =>
+  Array.isArray(items)
+    ? items.find((item) => typeof item === 'string' && item.trim())?.trim() || ''
+    : '';
+
+const getImageUrlFromCollection = (collection) => {
+  if (!Array.isArray(collection) || collection.length === 0) return '';
+
+  const directStringImage = getFirstStringImage(collection);
+  if (directStringImage) return directStringImage;
+
+  const principal =
+    collection.find((item) => item?.esPrincipal || item?.es_principal || item?.principal) ??
+    collection[0];
+
+  return getImageUrlFromRecord(principal, [
+    'urlImagen',
+    'url_imagen',
+    'imagenUrl',
+    'imagen_url',
+    'secureUrl',
+    'url',
+  ]);
+};
+
+const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) => {
+  for (const key of nestedKeys) {
+    const nested = source?.[key];
+    if (!nested || typeof nested !== 'object') continue;
+
+    const direct = getImageUrlFromRecord(nested, directKeys);
+    if (direct) return direct;
+
+    const nestedCollection = [
+      nested?.sucursalImagenes,
+      nested?.imagenesSucursal,
+      nested?.imagenesPropiedad,
+      nested?.propiedadImagenes,
+      nested?.imagenes,
+      nested?.galeria,
+      nested?.fotos,
+    ]
+      .map((items) => getImageUrlFromCollection(items))
+      .find(Boolean);
+
+    if (nestedCollection) return nestedCollection;
+  }
+
+  return '';
+};
+
+const resolvePropertyImageUrl = (propiedad) => {
+  const hydrated = getImageUrlFromRecord(propiedad, ['imagenSucursalResuelta']);
+  if (hydrated) return hydrated;
+
+  const direct = getImageUrlFromRecord(propiedad, [
+    'sucursalImagenPrincipalUrl',
+    'imagenSucursalPrincipalUrl',
+    'imagenSucursalUrl',
+    'urlImagenSucursal',
+    'portadaSucursalUrl',
+    'coverSucursalUrl',
+  ]);
+  if (direct) return direct;
+
+  const nestedDirect = getImageUrlFromNestedObject(
+    propiedad,
+    ['sucursal', 'hotel', 'propiedad', 'accommodation', 'data'],
+    [
+      'sucursalImagenPrincipalUrl',
+      'imagenSucursalPrincipalUrl',
+      'imagenSucursalUrl',
+      'urlImagenSucursal',
+      'portadaSucursalUrl',
+      'coverSucursalUrl',
+      'imagenPrincipalUrl',
+      'imagenUrl',
+      'urlImagen',
+    ]
+  );
+  if (nestedDirect) return nestedDirect;
+
+  const collection = [
+    propiedad?.sucursalImagenes,
+    propiedad?.imagenesSucursal,
+    propiedad?.imagenesPropiedad,
+    propiedad?.propiedadImagenes,
+    propiedad?.galeriaSucursal,
+    propiedad?.fotosSucursal,
+  ]
+    .map((items) => getImageUrlFromCollection(items))
+    .find(Boolean);
+  if (collection) return collection;
+
+  return getImageUrlFromRecord(propiedad, ['imagenPrincipalUrl']);
+};
 
 const formatLocation = (propiedad) =>
   [propiedad?.ciudad, propiedad?.pais].filter(Boolean).join(', ');
@@ -11,12 +157,14 @@ const formatLocation = (propiedad) =>
 export default function SearchPage() {
   const navigate = useNavigate();
   const { setPropiedad, setFechas, setHuespedes } = useBooking();
+  const todayIso = useMemo(() => getTodayIsoDate(), []);
 
   const [search, setSearch] = useState({
     destino: '',
     fechaInicio: '',
     fechaFin: '',
     numAdultos: '1',
+    numNinos: '',
     numHabitaciones: '1',
   });
   const [resultados, setResultados] = useState([]);
@@ -29,6 +177,14 @@ export default function SearchPage() {
     e.preventDefault();
     if (!search.fechaInicio || !search.fechaFin) {
       setError('Selecciona fecha de entrada y salida.');
+      setResultados([]);
+      setTotalResultados(0);
+      setBuscado(true);
+      return;
+    }
+
+    if (search.fechaInicio < todayIso) {
+      setError('La fecha de entrada no puede ser menor a la fecha actual.');
       setResultados([]);
       setTotalResultados(0);
       setBuscado(true);
@@ -51,14 +207,49 @@ export default function SearchPage() {
       return;
     }
 
+    if (search.numNinos !== '' && Number(search.numNinos) < 0) {
+      setError('El número de niños no puede ser negativo.');
+      setResultados([]);
+      setTotalResultados(0);
+      setBuscado(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await searchAccommodations(search);
+      const response = await searchAccommodations({
+        ...search,
+        numNinos: search.numNinos === '' ? undefined : search.numNinos,
+      });
       const items = Array.isArray(response?.items) ? response.items : [];
-      setResultados(items);
-      setTotalResultados(Number(response?.total ?? items.length));
+      const enrichedResults = await Promise.all(
+        items.map(async (item) => {
+          const accommodationId = item.sucursalGuid ?? item.id ?? item.slug;
+          if (!accommodationId) return item;
+
+          try {
+            const detail = await getAccommodation(accommodationId, {
+              fechaInicio: search.fechaInicio,
+              fechaFin: search.fechaFin,
+            });
+
+            return {
+              ...item,
+              imagenSucursalResuelta:
+                trimText(detail?.imagenPrincipalUrl) ||
+                getFirstStringImage(detail?.imagenes) ||
+                '',
+            };
+          } catch {
+            return item;
+          }
+        })
+      );
+
+      setResultados(enrichedResults);
+      setTotalResultados(Number(response?.totalResultados ?? response?.total ?? items.length));
       setBuscado(true);
     } catch (err) {
       setError(err?.response?.data?.message || 'Error al buscar propiedades');
@@ -70,14 +261,34 @@ export default function SearchPage() {
     }
   };
 
+  const handleFechaInicioChange = (nextValue) => {
+    setSearch((prev) => {
+      if (!nextValue) {
+        return { ...prev, fechaInicio: '', fechaFin: '' };
+      }
+
+      return {
+        ...prev,
+        fechaInicio: nextValue,
+        fechaFin: prev.fechaFin && prev.fechaFin <= nextValue ? '' : prev.fechaFin,
+      };
+    });
+  };
+
+  const handleFechaFinChange = (nextValue) => {
+    setSearch((prev) => ({ ...prev, fechaFin: nextValue }));
+  };
+
   const handleSelectPropiedad = (propiedad) => {
     setPropiedad(propiedad);
     setFechas(search.fechaInicio, search.fechaFin);
-    setHuespedes(Number(search.numAdultos), Number(search.numHabitaciones), 0);
-    const accommodationId = propiedad.sucursalGuid ?? propiedad.id ?? propiedad.slug;
-    navigate(
-      `/buscar/${accommodationId}?fechaInicio=${search.fechaInicio}&fechaFin=${search.fechaFin}`
+    setHuespedes(
+      Number(search.numAdultos),
+      Number(search.numHabitaciones),
+      getOptionalChildrenCount(search.numNinos)
     );
+    const accommodationId = propiedad.sucursalGuid ?? propiedad.id ?? propiedad.slug;
+    navigate(`/buscar/${accommodationId}?${buildSearchQuery(search)}`);
   };
 
   return (
@@ -100,25 +311,21 @@ export default function SearchPage() {
 
           <div className={styles.searchField}>
             <label htmlFor="fecha_entrada">Entrada</label>
-            <input
+            <MinimalDateInput
               id="fecha_entrada"
-              type="date"
               value={search.fechaInicio}
-              onChange={(e) =>
-                setSearch((prev) => ({ ...prev, fechaInicio: e.target.value }))
-              }
+              onChange={handleFechaInicioChange}
+              minDate={todayIso}
             />
           </div>
 
           <div className={styles.searchField}>
             <label htmlFor="fecha_salida">Salida</label>
-            <input
+            <MinimalDateInput
               id="fecha_salida"
-              type="date"
               value={search.fechaFin}
-              onChange={(e) =>
-                setSearch((prev) => ({ ...prev, fechaFin: e.target.value }))
-              }
+              onChange={handleFechaFinChange}
+              minDate={search.fechaInicio ? addDaysToIsoDate(search.fechaInicio, 1) : todayIso}
             />
           </div>
 
@@ -128,9 +335,24 @@ export default function SearchPage() {
               id="num_adultos"
               type="number"
               min="1"
+              required
               value={search.numAdultos}
               onChange={(e) =>
                 setSearch((prev) => ({ ...prev, numAdultos: e.target.value }))
+              }
+            />
+          </div>
+
+          <div className={styles.searchField}>
+            <label htmlFor="num_ninos">Niños</label>
+            <input
+              id="num_ninos"
+              type="number"
+              min="0"
+              placeholder="0"
+              value={search.numNinos}
+              onChange={(e) =>
+                setSearch((prev) => ({ ...prev, numNinos: e.target.value }))
               }
             />
           </div>
@@ -172,8 +394,8 @@ export default function SearchPage() {
               }}
             >
               <div className={styles.cardImg}>
-                {p.imagenPrincipalUrl ? (
-                  <img src={p.imagenPrincipalUrl} alt={p.nombre} />
+                {resolvePropertyImageUrl(p) ? (
+                  <img src={resolvePropertyImageUrl(p)} alt={trimText(p.nombre) || 'Propiedad'} />
                 ) : (
                   '🏨 Sin imagen'
                 )}

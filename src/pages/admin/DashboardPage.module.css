@@ -29,6 +29,16 @@
   gap: 16px;
 }
 
+.summaryNotice {
+  margin: -12px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff8e9;
+  border: 1px solid #f1dfaa;
+  color: #7b6330;
+  font-size: 13px;
+}
+
 .statCard {
   background: #ffffff;
   border-radius: 10px;

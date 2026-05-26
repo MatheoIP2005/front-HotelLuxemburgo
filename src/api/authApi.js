@@ -9,7 +9,7 @@ authApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access_token");
 
-    if (token) {
+    if (token && !config.headers?.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -21,7 +21,7 @@ authApi.interceptors.request.use(
 authApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401) {
+    if (error?.response?.status === 401 && !error?.config?.skipAuthRedirect) {
       localStorage.clear();
       window.location.href = "/admin/login";
     }

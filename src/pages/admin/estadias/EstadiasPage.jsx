@@ -196,8 +196,6 @@ export default function EstadiasPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ID Estadía</th>
-              <th>Habitación</th>
               <th>Check-in</th>
               <th>Check-out</th>
               <th>Estado</th>
@@ -207,14 +205,14 @@ export default function EstadiasPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className={styles.loadingMsg}>
+                <td colSpan={4} className={styles.loadingMsg}>
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && estadias.length === 0 && (
               <tr>
-                <td colSpan={6} className={styles.emptyMsg}>
+                <td colSpan={4} className={styles.emptyMsg}>
                   No hay registros
                 </td>
               </tr>
@@ -222,8 +220,6 @@ export default function EstadiasPage() {
             {!loading &&
               estadias.map((e) => (
                 <tr key={e.estadiaGuid}>
-                  <td>{`${e.estadiaGuid?.slice(0, 8)}...`}</td>
-                  <td>{e.idHabitacion}</td>
                   <td>{e.checkinUtc ?? "Pendiente"}</td>
                   <td>{e.checkoutUtc ?? "Pendiente"}</td>
                   <td>
@@ -268,7 +264,6 @@ export default function EstadiasPage() {
           <section className={styles.card}>
             <div className={styles.topBar}>
               <h3 className={styles.sectionTitle}>Cargos de estadía</h3>
-              <span className={styles.helpText}>Estadía: {selectedEstadiaGuid}</span>
             </div>
             {selectedEstadia && (
               <div className={styles.helpText}>
@@ -279,7 +274,6 @@ export default function EstadiasPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Cargo GUID</th>
                     <th>Descripción</th>
                     <th>Cantidad</th>
                     <th>Precio unitario</th>
@@ -291,14 +285,14 @@ export default function EstadiasPage() {
                 <tbody>
                   {cargosLoading && (
                     <tr>
-                      <td colSpan={7} className={styles.loadingMsg}>
+                      <td colSpan={6} className={styles.loadingMsg}>
                         Cargando cargos...
                       </td>
                     </tr>
                   )}
                   {!cargosLoading && cargos.length === 0 && (
                     <tr>
-                      <td colSpan={7} className={styles.emptyMsg}>
+                      <td colSpan={6} className={styles.emptyMsg}>
                         No hay cargos registrados para esta estadía.
                       </td>
                     </tr>
@@ -306,7 +300,6 @@ export default function EstadiasPage() {
                   {!cargosLoading &&
                     cargos.map((cargo) => (
                       <tr key={cargo.cargoGuid}>
-                        <td>{cargo.cargoGuid}</td>
                         <td>{cargo.descripcionCargo}</td>
                         <td>{cargo.cantidad}</td>
                         <td>${cargo.precioUnitario}</td>
@@ -343,10 +336,6 @@ export default function EstadiasPage() {
             <section className={styles.card}>
               <h3 className={styles.sectionTitle}>Detalle del cargo</h3>
               <div className={styles.grid2}>
-                <div className={styles.field}>
-                  <label>Cargo GUID</label>
-                  <input value={cargoDetalle.cargoGuid ?? ""} readOnly />
-                </div>
                 <div className={styles.field}>
                   <label>Estado</label>
                   <input value={cargoDetalle.estadoCargo ?? ""} readOnly />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import useValoraciones from "../../../hooks/useValoraciones";
 import { getSucursales } from "../../../services/sucursales.service";
 import { normalizeCollectionPayload } from "../../../utils/api";
@@ -10,12 +10,7 @@ export default function ValoracionesPage() {
     useValoraciones();
   const [sucursales, setSucursales] = useState([]);
   const [sucursalGuid, setSucursalGuid] = useState("");
-  const [manualSucursalGuid, setManualSucursalGuid] = useState("");
   const [actionError, setActionError] = useState(null);
-  const effectiveSucursalGuid = useMemo(
-    () => (manualSucursalGuid.trim() ? manualSucursalGuid.trim() : sucursalGuid),
-    [manualSucursalGuid, sucursalGuid]
-  );
 
   useEffect(() => {
     const loadSucursales = async () => {
@@ -75,19 +70,10 @@ export default function ValoracionesPage() {
               </option>
             ))}
           </select>
-          <input
-            placeholder="GUID sucursal manual"
-            value={manualSucursalGuid}
-            onChange={(e) => setManualSucursalGuid(e.target.value)}
-          />
           <button
             type="button"
             className={styles.btnWarning}
-            onClick={() =>
-              fetchValoraciones(
-                effectiveSucursalGuid ? { sucursalGuid: effectiveSucursalGuid } : {}
-              )
-            }
+            onClick={() => fetchValoraciones(sucursalGuid ? { sucursalGuid } : {})}
           >
             Buscar
           </button>
@@ -100,7 +86,6 @@ export default function ValoracionesPage() {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>ID Estadía</th>
               <th>Puntuación</th>
               <th>Tipo Viaje</th>
               <th>Estado</th>
@@ -111,14 +96,14 @@ export default function ValoracionesPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className={styles.loadingMsg}>
+                <td colSpan={5} className={styles.loadingMsg}>
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && valoraciones.length === 0 && (
               <tr>
-                <td colSpan={6} className={styles.emptyMsg}>
+                <td colSpan={5} className={styles.emptyMsg}>
                   No hay registros
                 </td>
               </tr>
@@ -126,7 +111,6 @@ export default function ValoracionesPage() {
             {!loading &&
               valoraciones.map((v) => (
                 <tr key={v.valoracionGuid}>
-                  <td>{v.estadiaGuid ?? v.idEstadia}</td>
                   <td>{v.puntuacionGeneral}</td>
                   <td>{v.tipoViaje ?? "N/A"}</td>
                   <td>

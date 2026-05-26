@@ -1,10 +1,11 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../../../hooks/useAuth";
 import styles from "./AdminLayout.module.css";
 
 export default function AdminLayout({ children }) {
   const { user, handleLogout } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const displayUser =
     typeof user === "string"
       ? user
@@ -27,6 +28,11 @@ export default function AdminLayout({ children }) {
 
   const getNavItemClassName = ({ isActive }) =>
     `${styles.navItem} ${isActive ? styles.navItemActive : ""}`.trim();
+
+  const handleLogoutClick = () => {
+    navigate("/buscar", { replace: true });
+    void handleLogout();
+  };
 
   return (
     <div className={styles.wrapper}>
@@ -94,7 +100,7 @@ export default function AdminLayout({ children }) {
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
+          <button type="button" className={styles.logoutBtn} onClick={handleLogoutClick}>
             <span className={styles.navIcon}>🚪</span>
             <span>Cerrar sesión</span>
           </button>

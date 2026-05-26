@@ -1,22 +1,32 @@
 import publicApi from "../api/publicApi";
 import { extractApiPayload } from "../utils/api";
 
+const toOptionalParam = (value) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : trimmed;
+  }
+  return value;
+};
+
 const toAccommodationParams = (params = {}) => ({
-  destino: params.destino ?? undefined,
-  fechaInicio:
+  destino: toOptionalParam(params.destino),
+  fechaInicio: toOptionalParam(
     params.fechaInicio ??
-    params.fecha_inicio ??
-    params.fechaEntrada ??
-    params.fecha_entrada ??
-    undefined,
-  fechaFin:
+      params.fecha_inicio ??
+      params.fechaEntrada ??
+      params.fecha_entrada
+  ),
+  fechaFin: toOptionalParam(
     params.fechaFin ??
-    params.fecha_salida ??
-    params.fechaSalida ??
-    params.fecha_fin ??
-    undefined,
-  numAdultos: params.numAdultos ?? params.num_adultos ?? undefined,
-  numHabitaciones: params.numHabitaciones ?? params.num_habitaciones ?? undefined,
+      params.fecha_salida ??
+      params.fechaSalida ??
+      params.fecha_fin
+  ),
+  num_adultos: toOptionalParam(params.numAdultos ?? params.num_adultos),
+  num_ninos: toOptionalParam(params.numNinos ?? params.num_ninos),
+  num_habitaciones: toOptionalParam(params.numHabitaciones ?? params.num_habitaciones),
 });
 
 export const searchAccommodations = async (params) => {

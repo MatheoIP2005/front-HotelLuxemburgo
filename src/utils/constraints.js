@@ -89,7 +89,7 @@ export const MAX_LENGTHS = {
   sucursal: {
     codigo: 10,
     nombre: 100,
-    descripcion: 250,
+    descripcion: 350,
     descripcionCorta: 250,
     tipoAlojamiento: 20,
     pais: 15,
