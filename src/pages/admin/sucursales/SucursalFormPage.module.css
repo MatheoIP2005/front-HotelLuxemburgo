@@ -88,6 +88,29 @@
   min-height: 80px;
 }
 
+.helperText {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.imagePreviewLarge {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.imagePreview {
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: block;
+}
+
 .checkboxGroup {
   display: flex;
   flex-wrap: wrap;

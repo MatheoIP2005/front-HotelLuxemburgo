@@ -28,8 +28,6 @@ export default function DashboardPage() {
     { icon: "🧾", name: "Facturas", path: "/admin/facturas" },
     { icon: "💳", name: "Pagos", path: "/admin/pagos" },
     { icon: "⭐", name: "Valoraciones", path: "/admin/valoraciones" },
-    { icon: "👤", name: "Usuarios", path: "/admin/usuarios" },
-    { icon: "🛡️", name: "Auditoría", path: "/admin/auditoria" },
   ];
 
   return (

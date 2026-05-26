@@ -155,10 +155,11 @@ export default function SucursalFormPage() {
       const result = await uploadImage(file);
       setImagenForm((prev) => ({
         ...prev,
-        url_imagen: result?.url ?? result?.data?.url ?? "",
+        url_imagen:
+          result?.secureUrl ?? result?.url ?? result?.data?.secureUrl ?? result?.data?.url ?? "",
       }));
     } catch (err) {
-      setError(err?.response?.data?.message || "No se pudo subir la imagen.");
+      setError(err?.response?.data?.message || err?.message || "No se pudo subir la imagen.");
     } finally {
       setUploadingImage(false);
       event.target.value = "";
@@ -664,6 +665,9 @@ export default function SucursalFormPage() {
             <div className={styles.fieldFull}>
               <label>Subir archivo</label>
               <input type="file" accept="image/*" onChange={handleUploadImage} />
+              <span className={styles.helperText}>
+                Se sube a Cloudinary si las variables VITE_CLOUDINARY estan configuradas.
+              </span>
             </div>
             <div className={styles.fieldFull}>
               <label>URL imagen</label>
@@ -672,9 +676,18 @@ export default function SucursalFormPage() {
                 maxLength={MAX_LENGTHS.imagen.url}
                 value={imagenForm.url_imagen}
                 onChange={handleImageChange}
-                placeholder="/files/imagen.jpg o URL pública"
+                placeholder="/files/imagen.jpg o URL publica"
               />
             </div>
+            {imagenForm.url_imagen && (
+              <div className={styles.fieldFull}>
+                <img
+                  className={styles.imagePreviewLarge}
+                  src={imagenForm.url_imagen}
+                  alt="Preview de imagen"
+                />
+              </div>
+            )}
             <div className={styles.fieldFull}>
               <label>Descripción</label>
               <input
@@ -739,7 +752,11 @@ export default function SucursalFormPage() {
                   <tr key={imagen.sucursalImagenGuid ?? imagen.idSucursalImagen}>
                     <td>
                       <a href={imagen.urlImagen} target="_blank" rel="noreferrer">
-                        Ver imagen
+                        <img
+                          className={styles.imagePreview}
+                          src={imagen.urlImagen}
+                          alt={imagen.descripcionImagen || "Imagen de sucursal"}
+                        />
                       </a>
                     </td>
                     <td>{imagen.descripcionImagen || "-"}</td>

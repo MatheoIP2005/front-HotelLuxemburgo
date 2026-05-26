@@ -24,12 +24,6 @@ import FacturasPage from "../pages/admin/facturas/FacturasPage";
 import PagosPage from "../pages/admin/pagos/PagosPage";
 import PagoFormPage from "../pages/admin/pagos/PagoFormPage";
 import ValoracionesPage from "../pages/admin/valoraciones/ValoracionesPage";
-import UsuariosPage from "../pages/admin/usuarios/UsuariosPage";
-import UsuarioFormPage from "../pages/admin/usuarios/UsuarioFormPage";
-import AuditoriaPage from "../pages/admin/auditoria/AuditoriaPage";
-import RolesPage from "../pages/admin/roles/RolesPage";
-import RolFormPage from "../pages/admin/roles/RolFormPage";
-import CambiarPasswordPage from "../pages/admin/account/CambiarPasswordPage";
 import AdminLayout from "../components/admin/layout/AdminLayout";
 import SearchPage from "../pages/public/SearchPage";
 import AccommodationDetailPage from "../pages/public/AccommodationDetailPage";
@@ -112,14 +106,14 @@ export default function AppRouter() {
             <Route path="pagos" element={<PagosPage />} />
             <Route path="pagos/nuevo" element={<PagoFormPage />} />
             <Route path="valoraciones" element={<ValoracionesPage />} />
-            <Route path="usuarios" element={<UsuariosPage />} />
-            <Route path="usuarios/nuevo" element={<UsuarioFormPage />} />
-            <Route path="usuarios/:id" element={<UsuarioFormPage />} />
-            <Route path="roles" element={<RolesPage />} />
-            <Route path="roles/nuevo" element={<RolFormPage />} />
-            <Route path="roles/:id" element={<RolFormPage />} />
-            <Route path="cambiar-password" element={<CambiarPasswordPage />} />
-            <Route path="auditoria" element={<AuditoriaPage />} />
+            <Route path="usuarios" element={<Navigate to="/admin" replace />} />
+            <Route path="usuarios/nuevo" element={<Navigate to="/admin" replace />} />
+            <Route path="usuarios/:id" element={<Navigate to="/admin" replace />} />
+            <Route path="roles" element={<Navigate to="/admin" replace />} />
+            <Route path="roles/nuevo" element={<Navigate to="/admin" replace />} />
+            <Route path="roles/:id" element={<Navigate to="/admin" replace />} />
+            <Route path="cambiar-password" element={<Navigate to="/admin" replace />} />
+            <Route path="auditoria" element={<Navigate to="/admin" replace />} />
           </Route>
           <Route path="/" element={<Navigate to="/buscar" replace />} />
           <Route path="*" element={<NotFoundPage />} />

@@ -176,10 +176,11 @@ export default function TipoHabitacionFormPage() {
       const result = await uploadImage(file);
       setImagenForm((prev) => ({
         ...prev,
-        url_imagen: result?.url ?? result?.data?.url ?? "",
+        url_imagen:
+          result?.secureUrl ?? result?.url ?? result?.data?.secureUrl ?? result?.data?.url ?? "",
       }));
     } catch (err) {
-      setError(err?.response?.data?.message || "No se pudo subir la imagen.");
+      setError(err?.response?.data?.message || err?.message || "No se pudo subir la imagen.");
     } finally {
       setAssetLoading(false);
       event.target.value = "";
@@ -355,6 +356,9 @@ export default function TipoHabitacionFormPage() {
             <div className={styles.fieldFull}>
               <label>Subir archivo</label>
               <input type="file" accept="image/*" onChange={handleUploadImage} />
+              <span className={styles.helperText}>
+                Se sube a Cloudinary si las variables VITE_CLOUDINARY estan configuradas.
+              </span>
             </div>
             <div className={styles.fieldFull}>
               <label>URL imagen</label>
@@ -365,6 +369,15 @@ export default function TipoHabitacionFormPage() {
                 onChange={handleImageChange}
               />
             </div>
+            {imagenForm.url_imagen && (
+              <div className={styles.fieldFull}>
+                <img
+                  className={styles.imagePreviewLarge}
+                  src={imagenForm.url_imagen}
+                  alt="Preview de imagen"
+                />
+              </div>
+            )}
             <div className={styles.fieldFull}>
               <label>Descripción</label>
               <input
@@ -429,7 +442,11 @@ export default function TipoHabitacionFormPage() {
                   <tr key={imagen.idTipoHabitacionImagen}>
                     <td>
                       <a href={imagen.urlImagen} target="_blank" rel="noreferrer">
-                        Ver imagen
+                        <img
+                          className={styles.imagePreview}
+                          src={imagen.urlImagen}
+                          alt={imagen.descripcionImagen || "Imagen de tipo de habitacion"}
+                        />
                       </a>
                     </td>
                     <td>{imagen.descripcionImagen || "-"}</td>
