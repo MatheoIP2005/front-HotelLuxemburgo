@@ -44,15 +44,25 @@ export default function PagosPage() {
     <div className={styles.page}>
       <div className={styles.topBar}>
         <h2>Pagos</h2>
-        <div>
-          <select name="estado" value={filters.estado} onChange={handleChange}>
+        <div className={styles.filters}>
+          <select
+            className={styles.filterSelect}
+            name="estado"
+            value={filters.estado}
+            onChange={handleChange}
+          >
             <option value="">Todos los estados</option>
             <option value="PEN">PEN</option>
             <option value="APR">APR</option>
             <option value="REC">REC</option>
             <option value="CAN">CAN</option>
           </select>
-          <select name="metodo" value={filters.metodo} onChange={handleChange}>
+          <select
+            className={styles.filterSelect}
+            name="metodo"
+            value={filters.metodo}
+            onChange={handleChange}
+          >
             <option value="">Todos los métodos</option>
             <option value="EFECTIVO">EFECTIVO</option>
             <option value="TARJETA_CREDITO">TARJETA_CREDITO</option>

@@ -17,6 +17,38 @@
   font-weight: 700;
 }
 
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  min-height: 44px;
+  min-width: 180px;
+  padding: 11px 36px 11px 14px;
+  border: 1px solid #d9d4ea;
+  border-radius: 12px;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%233d3654' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  color: #1f1731;
+  font-size: 14px;
+  line-height: 1.45;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filterSelect:focus {
+  border-color: #7c83fd;
+  box-shadow: 0 0 0 3px rgba(124, 131, 253, 0.16);
+}
+
 .btnPrimary {
   padding: 10px 20px;
   background: #7c83fd;

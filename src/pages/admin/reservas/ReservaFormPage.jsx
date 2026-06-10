@@ -3,15 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { createReserva } from "../../../services/reservas.service";
 import { getClientes } from "../../../services/clientes.service";
 import { getSucursales } from "../../../services/sucursales.service";
-import { getHabitaciones } from "../../../services/habitaciones.service";
+import { getHabitacionesDisponiblesPorSucursal } from "../../../services/habitaciones.service";
 import { getTarifas } from "../../../services/tarifas.service";
-import { normalizeCollectionPayload } from "../../../utils/api";
+import { extractApiErrorMessage, normalizeCollectionPayload } from "../../../utils/api";
+import MinimalDateInput from "../../../components/public/MinimalDateInput";
 import styles from "../usuarios/UsuarioFormPage.module.css";
 
 const getLocalDateMin = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+};
+
+const addDaysToIsoDate = (isoDate, amount) => {
+  if (!isoDate) return "";
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const nextDate = new Date(year, month - 1, day);
+  nextDate.setDate(nextDate.getDate() + amount);
+  const nextYear = nextDate.getFullYear();
+  const nextMonth = String(nextDate.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(nextDate.getDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
 };
 
 const createEmptyLinea = () => ({
@@ -38,6 +50,12 @@ const EMPTY_FORM = {
 };
 
 const trimText = (value) => String(value ?? "").trim();
+
+const isValidGuid = (value) =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
 
 const getCounterText = (value, maxLength) => `${String(value ?? "").length}/${maxLength}`;
 
@@ -70,9 +88,11 @@ export default function ReservaFormPage() {
   const [catalogs, setCatalogs] = useState({
     clientes: [],
     sucursales: [],
-    habitaciones: [],
     tarifas: [],
   });
+  const [habitacionesDisponibles, setHabitacionesDisponibles] = useState([]);
+  const [loadingHabitaciones, setLoadingHabitaciones] = useState(false);
+  const [habitacionesLoadError, setHabitacionesLoadError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -85,11 +105,11 @@ export default function ReservaFormPage() {
       const currentErrors = {};
       const precioNocheAplicado = Number(item.precio_noche_aplicado);
 
-      if (!item.habitacion_id || Number(item.habitacion_id) <= 0) {
-        currentErrors.habitacion_id = "Seleccione una habitación válida.";
+      if (!isValidGuid(item.habitacion_guid)) {
+        currentErrors.habitacion_guid = "Seleccione una habitación válida.";
       }
-      if (!item.tarifa_id || Number(item.tarifa_id) <= 0) {
-        currentErrors.tarifa_id = "Seleccione una tarifa válida.";
+      if (!isValidGuid(item.tarifa_guid)) {
+        currentErrors.tarifa_guid = "Seleccione una tarifa válida.";
       }
       if (!item.num_adultos || Number(item.num_adultos) <= 0) {
         currentErrors.num_adultos = "Debe ingresar al menos un adulto.";
@@ -106,11 +126,11 @@ export default function ReservaFormPage() {
       return currentErrors;
     });
 
-    if (!form.cliente_id || Number(form.cliente_id) <= 0) {
-      formErrors.cliente_id = "Seleccione un cliente válido.";
+    if (!isValidGuid(form.cliente_guid)) {
+      formErrors.cliente_guid = "Seleccione un cliente válido.";
     }
-    if (!form.sucursal_id || Number(form.sucursal_id) <= 0) {
-      formErrors.sucursal_id = "Seleccione una sucursal válida.";
+    if (!isValidGuid(form.sucursal_guid)) {
+      formErrors.sucursal_guid = "Seleccione una sucursal válida.";
     }
     if (!form.fecha_inicio) {
       formErrors.fecha_inicio = "La fecha inicio es obligatoria.";
@@ -138,59 +158,136 @@ export default function ReservaFormPage() {
 
   const parseApiError = (err) => {
     const apiError = err?.response?.data;
-    if (Array.isArray(apiError?.details) && apiError.details.length > 0) {
-      return `${apiError.error || "Solicitud inválida"}: ${apiError.details.join(" | ")}`;
+    const details = apiError?.details ?? apiError?.errors;
+    if (Array.isArray(details) && details.length > 0) {
+      return `${apiError.message || apiError.error || "Solicitud inválida"}: ${details.join(" | ")}`;
     }
     return apiError?.message || apiError?.error || err?.message || "Error al guardar";
   };
 
   useEffect(() => {
     const loadCatalogs = async () => {
-      try {
-        const [clientes, sucursales, habitaciones, tarifas] = await Promise.all([
+      setError(null);
+
+      const [clientesResult, sucursalesResult, tarifasResult] =
+        await Promise.allSettled([
           getClientes({ pagina: 1, limite: 100 }),
-          getSucursales({ pagina: 1, limite: 100 }),
-          getHabitaciones({ pagina: 1, limite: 100 }),
-          getTarifas({ pagina: 1, limite: 100 }),
+          getSucursales(),
+          getTarifas(),
         ]);
 
-        setCatalogs({
-          clientes: normalizeCollectionPayload(clientes).items,
-          sucursales: normalizeCollectionPayload(sucursales).items,
-          habitaciones: normalizeCollectionPayload(habitaciones).items,
-          tarifas: normalizeCollectionPayload(tarifas).items,
-        });
-      } catch (err) {
-        setError(err?.response?.data?.message || "No se pudieron cargar los catálogos.");
+      const catalogErrors = [];
+
+      const resolveItems = (result, label) => {
+        if (result.status === "fulfilled") {
+          return normalizeCollectionPayload(result.value).items;
+        }
+        catalogErrors.push(
+          result.reason?.response?.data?.message ||
+            result.reason?.message ||
+            `No se pudo cargar ${label}.`
+        );
+        return [];
+      };
+
+      setCatalogs({
+        clientes: resolveItems(clientesResult, "clientes"),
+        sucursales: resolveItems(sucursalesResult, "sucursales"),
+        tarifas: resolveItems(tarifasResult, "tarifas"),
+      });
+
+      if (catalogErrors.length > 0) {
+        setError(catalogErrors.join(" "));
       }
     };
 
     loadCatalogs();
   }, []);
 
+  const fechasReservaValidas = useMemo(() => {
+    if (!form.fecha_inicio || !form.fecha_fin) {
+      return false;
+    }
+
+    const fechaInicio = new Date(`${form.fecha_inicio}T00:00:00`);
+    const fechaFin = new Date(`${form.fecha_fin}T00:00:00`);
+    return fechaFin > fechaInicio;
+  }, [form.fecha_inicio, form.fecha_fin]);
+
+  const resetHabitacionEnLineas = (lineas) =>
+    lineas.map((linea) => ({
+      ...linea,
+      habitacion_id: "",
+      habitacion_guid: "",
+      precio_noche_aplicado: "",
+    }));
+
+  useEffect(() => {
+    if (!isValidGuid(form.sucursal_guid) || !fechasReservaValidas) {
+      setHabitacionesDisponibles([]);
+      setHabitacionesLoadError(null);
+      setLoadingHabitaciones(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDisponibles = async () => {
+      setLoadingHabitaciones(true);
+      setHabitacionesLoadError(null);
+
+      try {
+        const items = await getHabitacionesDisponiblesPorSucursal({
+          sucursalGuid: form.sucursal_guid,
+          fechaInicio: form.fecha_inicio,
+          fechaFin: form.fecha_fin,
+        });
+
+        if (!cancelled) {
+          setHabitacionesDisponibles(items);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setHabitacionesDisponibles([]);
+          setHabitacionesLoadError(
+            extractApiErrorMessage(
+              err,
+              "No se pudieron cargar las habitaciones disponibles."
+            )
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingHabitaciones(false);
+        }
+      }
+    };
+
+    loadDisponibles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.sucursal_guid, form.fecha_inicio, form.fecha_fin, fechasReservaValidas]);
+
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
 
-    if (name === "cliente_id") {
-      const cliente = catalogs.clientes.find(
-        (item) => String(item.idCliente) === String(value)
-      );
+    if (name === "cliente_guid") {
       setForm((prev) => ({
         ...prev,
-        cliente_id: value,
-        cliente_guid: cliente?.clienteGuid ?? "",
+        cliente_id: "",
+        cliente_guid: value,
       }));
       return;
     }
 
-    if (name === "sucursal_id") {
-      const sucursal = catalogs.sucursales.find(
-        (item) => String(item.idSucursal) === String(value)
-      );
+    if (name === "sucursal_guid") {
       setForm((prev) => ({
         ...prev,
-        sucursal_id: value,
-        sucursal_guid: sucursal?.sucursalGuid ?? "",
+        sucursal_id: "",
+        sucursal_guid: value,
+        habitaciones: prev.habitaciones.map(() => createEmptyLinea()),
       }));
       return;
     }
@@ -203,6 +300,104 @@ export default function ReservaFormPage() {
     setTouched((prev) => ({ ...prev, [name]: true }));
   };
 
+  const minFechaInicio = useMemo(() => getLocalDateMin(), []);
+
+  const minFechaFin = useMemo(
+    () =>
+      form.fecha_inicio
+        ? addDaysToIsoDate(form.fecha_inicio, 1)
+        : minFechaInicio,
+    [form.fecha_inicio, minFechaInicio]
+  );
+
+  const getHabitacionesParaLinea = (lineIndex) => {
+    const currentGuid = trimText(form.habitaciones[lineIndex]?.habitacion_guid);
+    const seleccionadas = form.habitaciones
+      .map((linea, index) =>
+        index === lineIndex ? "" : trimText(linea.habitacion_guid)
+      )
+      .filter(isValidGuid);
+
+    return habitacionesDisponibles.filter(
+      (habitacion) =>
+        habitacion.habitacionGuid === currentGuid ||
+        !seleccionadas.includes(habitacion.habitacionGuid)
+    );
+  };
+
+  useEffect(() => {
+    if (loadingHabitaciones) {
+      return;
+    }
+
+    const disponiblesGuids = new Set(
+      habitacionesDisponibles.map((habitacion) => habitacion.habitacionGuid)
+    );
+
+    setForm((prev) => {
+      let changed = false;
+      const habitaciones = prev.habitaciones.map((linea) => {
+        if (
+          isValidGuid(linea.habitacion_guid) &&
+          !disponiblesGuids.has(linea.habitacion_guid)
+        ) {
+          changed = true;
+          return {
+            ...linea,
+            habitacion_id: "",
+            habitacion_guid: "",
+            precio_noche_aplicado: "",
+          };
+        }
+        return linea;
+      });
+
+      return changed ? { ...prev, habitaciones } : prev;
+    });
+  }, [habitacionesDisponibles, loadingHabitaciones]);
+
+  const tarifasPorSucursal = useMemo(() => {
+    if (!isValidGuid(form.sucursal_guid)) {
+      return [];
+    }
+
+    return catalogs.tarifas.filter(
+      (tarifa) =>
+        tarifa.sucursalGuid === form.sucursal_guid &&
+        (tarifa.estadoTarifa ?? "ACT") === "ACT"
+    );
+  }, [catalogs.tarifas, form.sucursal_guid]);
+
+  const handleFechaInicioChange = (nextValue) => {
+    setForm((prev) => {
+      if (!nextValue) {
+        return {
+          ...prev,
+          fecha_inicio: "",
+          fecha_fin: "",
+          habitaciones: resetHabitacionEnLineas(prev.habitaciones),
+        };
+      }
+
+      const resetFin = prev.fecha_fin && prev.fecha_fin <= nextValue;
+
+      return {
+        ...prev,
+        fecha_inicio: nextValue,
+        fecha_fin: resetFin ? "" : prev.fecha_fin,
+        habitaciones: resetHabitacionEnLineas(prev.habitaciones),
+      };
+    });
+  };
+
+  const handleFechaFinChange = (nextValue) => {
+    setForm((prev) => ({
+      ...prev,
+      fecha_fin: nextValue,
+      habitaciones: resetHabitacionEnLineas(prev.habitaciones),
+    }));
+  };
+
   const handleLineaChange = (index, event) => {
     const { name, value } = event.target;
 
@@ -211,25 +406,34 @@ export default function ReservaFormPage() {
       habitaciones: prev.habitaciones.map((item, currentIndex) =>
         currentIndex === index
           ? (() => {
-              if (name === "habitacion_id") {
-                const habitacion = catalogs.habitaciones.find(
-                  (current) => String(current.idHabitacion) === String(value)
+              if (name === "habitacion_guid") {
+                const habitacion = getHabitacionesParaLinea(index).find(
+                  (current) => current.habitacionGuid === value
                 );
                 return {
                   ...item,
-                  habitacion_id: value,
-                  habitacion_guid: habitacion?.habitacionGuid ?? "",
+                  habitacion_guid: value,
+                  habitacion_id: "",
+                  precio_noche_aplicado:
+                    item.precio_noche_aplicado ||
+                    (habitacion?.precioBase != null
+                      ? String(habitacion.precioBase)
+                      : ""),
                 };
               }
 
-              if (name === "tarifa_id") {
-                const tarifa = catalogs.tarifas.find(
-                  (current) => String(current.idTarifa) === String(value)
+              if (name === "tarifa_guid") {
+                const tarifa = tarifasPorSucursal.find(
+                  (current) => current.tarifaGuid === value
                 );
                 return {
                   ...item,
-                  tarifa_id: value,
-                  tarifa_guid: tarifa?.tarifaGuid ?? "",
+                  tarifa_guid: value,
+                  tarifa_id: "",
+                  precio_noche_aplicado:
+                    tarifa?.precioPorNoche != null
+                      ? String(tarifa.precioPorNoche)
+                      : item.precio_noche_aplicado,
                 };
               }
 
@@ -286,10 +490,10 @@ export default function ReservaFormPage() {
     setLoading(true);
 
     try {
-      if (!form.cliente_id || Number(form.cliente_id) <= 0) {
+      if (!isValidGuid(form.cliente_guid)) {
         throw new Error("Debes seleccionar un cliente válido.");
       }
-      if (!form.sucursal_id || Number(form.sucursal_id) <= 0) {
+      if (!isValidGuid(form.sucursal_guid)) {
         throw new Error("Debes seleccionar una sucursal válida.");
       }
       if (!form.fecha_inicio || !form.fecha_fin) {
@@ -314,16 +518,25 @@ export default function ReservaFormPage() {
       }
 
       const habitaciones = form.habitaciones.map((item, index) => {
-        const idHabitacion = Number(item.habitacion_id);
-        const idTarifa = Number(item.tarifa_id);
+        const habitacionGuid = trimText(item.habitacion_guid);
+        const tarifaGuid = trimText(item.tarifa_guid);
         const numAdultos = Number(item.num_adultos);
         const numNinos = Number(item.num_ninos);
         const precioNocheAplicado = Number(item.precio_noche_aplicado);
 
-        if (!idHabitacion || idHabitacion <= 0) {
+        if (!isValidGuid(habitacionGuid)) {
           throw new Error(`Selecciona la habitación de la línea ${index + 1}.`);
         }
-        if (!idTarifa || idTarifa <= 0) {
+        if (
+          !habitacionesDisponibles.some(
+            (habitacion) => habitacion.habitacionGuid === habitacionGuid
+          )
+        ) {
+          throw new Error(
+            `La habitación de la línea ${index + 1} ya no está disponible para las fechas elegidas.`
+          );
+        }
+        if (!isValidGuid(tarifaGuid)) {
           throw new Error(`Selecciona la tarifa de la línea ${index + 1}.`);
         }
         if (numAdultos <= 0) {
@@ -337,8 +550,8 @@ export default function ReservaFormPage() {
         }
 
         return {
-          idHabitacion,
-          idTarifa,
+          habitacionGuid,
+          tarifaGuid,
           fechaInicio: form.fecha_inicio,
           fechaFin: form.fecha_fin,
           numAdultos,
@@ -351,9 +564,19 @@ export default function ReservaFormPage() {
         throw new Error("Debes agregar al menos una habitación.");
       }
 
+      const habitacionGuids = habitaciones.map((linea) => linea.habitacionGuid);
+      const habitacionesDuplicadas = habitacionGuids.filter(
+        (guid, index) => habitacionGuids.indexOf(guid) !== index
+      );
+      if (habitacionesDuplicadas.length > 0) {
+        throw new Error(
+          "No puedes asignar la misma habitación en más de una línea. Quita las líneas duplicadas."
+        );
+      }
+
       const payload = {
-        idCliente: Number(form.cliente_id),
-        idSucursal: Number(form.sucursal_id),
+        clienteGuid: form.cliente_guid,
+        sucursalGuid: form.sucursal_guid,
         fechaInicio: form.fecha_inicio,
         fechaFin: form.fecha_fin,
         origenCanalReserva: form.origen_canal_reserva,
@@ -387,76 +610,75 @@ export default function ReservaFormPage() {
       <section className={styles.card}>
         <h3 className={styles.sectionTitle}>Datos de Reserva</h3>
         <div className={styles.grid2}>
-          <div className={getFieldClassName(getFormError("cliente_id"), styles.fieldWide)}>
-            <label htmlFor="cliente_id">Cliente</label>
+          <div className={getFieldClassName(getFormError("cliente_guid"), styles.fieldWide)}>
+            <label htmlFor="cliente_guid">Cliente</label>
             <select
-              id="cliente_id"
-              name="cliente_id"
-              value={form.cliente_id}
+              id="cliente_guid"
+              name="cliente_guid"
+              value={form.cliente_guid}
               onChange={handleChange}
               onBlur={handleBlur}
-              aria-invalid={Boolean(getFormError("cliente_id"))}
+              aria-invalid={Boolean(getFormError("cliente_guid"))}
               aria-describedby={getDescribedBy(
-                "cliente_id-help",
-                "cliente_id-error",
-                getFormError("cliente_id")
+                "cliente_guid-help",
+                "cliente_guid-error",
+                getFormError("cliente_guid")
               )}
             >
               <option value="">Selecciona un cliente</option>
               {catalogs.clientes.map((item) => (
-                <option key={item.clienteGuid} value={item.idCliente}>
-                  {`${trimText(item.nombres)} ${trimText(item.apellidos)}`.trim()} ({trimText(item.numeroIdentificacion)}) - ID {item.idCliente}
+                <option key={item.clienteGuid} value={item.clienteGuid}>
+                  {`${trimText(item.nombres)} ${trimText(item.apellidos)}`.trim()} (
+                  {trimText(item.numeroIdentificacion)})
                 </option>
               ))}
             </select>
             <FieldHint
-              helpId="cliente_id-help"
-              errorId="cliente_id-error"
-              helpText={`GUID: ${form.cliente_guid || "N/A"}`}
-              errorText={getFormError("cliente_id")}
+              helpId="cliente_guid-help"
+              errorId="cliente_guid-error"
+              helpText="Cliente que quedará asociado a la reserva."
+              errorText={getFormError("cliente_guid")}
             />
           </div>
-          <div className={getFieldClassName(getFormError("sucursal_id"), styles.fieldWide)}>
-            <label htmlFor="sucursal_id">Sucursal</label>
+          <div className={getFieldClassName(getFormError("sucursal_guid"), styles.fieldWide)}>
+            <label htmlFor="sucursal_guid">Sucursal</label>
             <select
-              id="sucursal_id"
-              name="sucursal_id"
-              value={form.sucursal_id}
+              id="sucursal_guid"
+              name="sucursal_guid"
+              value={form.sucursal_guid}
               onChange={handleChange}
               onBlur={handleBlur}
-              aria-invalid={Boolean(getFormError("sucursal_id"))}
+              aria-invalid={Boolean(getFormError("sucursal_guid"))}
               aria-describedby={getDescribedBy(
-                "sucursal_id-help",
-                "sucursal_id-error",
-                getFormError("sucursal_id")
+                "sucursal_guid-help",
+                "sucursal_guid-error",
+                getFormError("sucursal_guid")
               )}
             >
               <option value="">Selecciona una sucursal</option>
               {catalogs.sucursales.map((item) => (
-                <option key={item.sucursalGuid} value={item.idSucursal}>
-                  {trimText(item.nombreSucursal)} ({trimText(item.codigoSucursal)}) - ID {item.idSucursal}
+                <option key={item.sucursalGuid} value={item.sucursalGuid}>
+                  {trimText(item.nombreSucursal)} ({trimText(item.codigoSucursal)})
                 </option>
               ))}
             </select>
             <FieldHint
-              helpId="sucursal_id-help"
-              errorId="sucursal_id-error"
-              helpText={`GUID: ${form.sucursal_guid || "N/A"}`}
-              errorText={getFormError("sucursal_id")}
+              helpId="sucursal_guid-help"
+              errorId="sucursal_guid-error"
+              helpText="Las habitaciones disponibles dependen de la sucursal y las fechas de la reserva."
+              errorText={getFormError("sucursal_guid")}
             />
           </div>
           <div className={getFieldClassName(getFormError("fecha_inicio"), styles.fieldCompact)}>
             <label htmlFor="fecha_inicio">Fecha inicio</label>
-            <input
+            <MinimalDateInput
               id="fecha_inicio"
-              type="date"
-              min={getLocalDateMin()}
-              name="fecha_inicio"
+              variant="admin"
               value={form.fecha_inicio}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              required
-              aria-invalid={Boolean(getFormError("fecha_inicio"))}
+              onChange={handleFechaInicioChange}
+              onBlur={() => setTouched((prev) => ({ ...prev, fecha_inicio: true }))}
+              minDate={minFechaInicio}
+              hasError={Boolean(getFormError("fecha_inicio"))}
               aria-describedby={getDescribedBy(
                 "fecha_inicio-help",
                 "fecha_inicio-error",
@@ -472,16 +694,14 @@ export default function ReservaFormPage() {
           </div>
           <div className={getFieldClassName(getFormError("fecha_fin"), styles.fieldCompact)}>
             <label htmlFor="fecha_fin">Fecha fin</label>
-            <input
+            <MinimalDateInput
               id="fecha_fin"
-              type="date"
-              min={form.fecha_inicio || getLocalDateMin()}
-              name="fecha_fin"
+              variant="admin"
               value={form.fecha_fin}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              required
-              aria-invalid={Boolean(getFormError("fecha_fin"))}
+              onChange={handleFechaFinChange}
+              onBlur={() => setTouched((prev) => ({ ...prev, fecha_fin: true }))}
+              minDate={minFechaFin}
+              hasError={Boolean(getFormError("fecha_fin"))}
               aria-describedby={getDescribedBy(
                 "fecha_fin-help",
                 "fecha_fin-error",
@@ -568,13 +788,29 @@ export default function ReservaFormPage() {
       <section className={styles.card}>
         <div className={styles.topBar}>
           <h3 className={styles.sectionTitle}>Habitaciones de la reserva</h3>
-          <button type="button" className={styles.btnSecondary} onClick={addLinea}>
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={addLinea}
+            disabled={!fechasReservaValidas || !isValidGuid(form.sucursal_guid)}
+          >
             Agregar habitación
           </button>
         </div>
 
+        {habitacionesLoadError && (
+          <div className={styles.errorBox}>{habitacionesLoadError}</div>
+        )}
+
         <div className={styles.lineList}>
-          {form.habitaciones.map((item, index) => (
+          {form.habitaciones.map((item, index) => {
+            const habitacionesLinea = getHabitacionesParaLinea(index);
+            const habitacionSelectDisabled =
+              !isValidGuid(form.sucursal_guid) ||
+              !fechasReservaValidas ||
+              loadingHabitaciones;
+
+            return (
             <div key={`habitacion-linea-${index}`} className={styles.lineCard}>
               <div className={styles.lineHeader}>
                 <strong>Línea {index + 1}</strong>
@@ -591,68 +827,108 @@ export default function ReservaFormPage() {
 
               <div className={styles.lineGrid}>
                 <div
-                  className={getFieldClassName(getLineError(index, "habitacion_id"), styles.fieldWide)}
+                  className={getFieldClassName(
+                    getLineError(index, "habitacion_guid"),
+                    styles.fieldWide
+                  )}
                 >
-                  <label htmlFor={`habitacion_id_${index}`}>Habitación</label>
+                  <label htmlFor={`habitacion_guid_${index}`}>Habitación</label>
                   <select
-                    id={`habitacion_id_${index}`}
-                    name="habitacion_id"
-                    value={item.habitacion_id}
+                    id={`habitacion_guid_${index}`}
+                    name="habitacion_guid"
+                    value={item.habitacion_guid}
                     onChange={(event) => handleLineaChange(index, event)}
-                    onBlur={() => handleLineaBlur(index, "habitacion_id")}
-                    aria-invalid={Boolean(getLineError(index, "habitacion_id"))}
+                    onBlur={() => handleLineaBlur(index, "habitacion_guid")}
+                    disabled={habitacionSelectDisabled}
+                    aria-invalid={Boolean(getLineError(index, "habitacion_guid"))}
                     aria-describedby={getDescribedBy(
-                      `habitacion_id_${index}-help`,
-                      `habitacion_id_${index}-error`,
-                      getLineError(index, "habitacion_id")
+                      `habitacion_guid_${index}-help`,
+                      `habitacion_guid_${index}-error`,
+                      getLineError(index, "habitacion_guid")
                     )}
                   >
-                    <option value="">Selecciona una habitación</option>
-                    {catalogs.habitaciones.map((habitacion) => (
+                    <option value="">
+                      {!isValidGuid(form.sucursal_guid)
+                        ? "Primero selecciona una sucursal"
+                        : !fechasReservaValidas
+                          ? "Indica fecha inicio y fin válidas"
+                          : loadingHabitaciones
+                            ? "Cargando habitaciones disponibles..."
+                            : habitacionesLinea.length === 0
+                              ? "No hay habitaciones disponibles en esas fechas"
+                              : "Selecciona una habitación"}
+                    </option>
+                    {habitacionesLinea.map((habitacion) => (
                       <option
                         key={habitacion.habitacionGuid}
-                        value={habitacion.idHabitacion}
+                        value={habitacion.habitacionGuid}
                       >
-                        {trimText(habitacion.numeroHabitacion)} - ID {habitacion.idHabitacion}
+                        Habitación {trimText(habitacion.numeroHabitacion)}
+                        {habitacion.piso != null && habitacion.piso !== 0
+                          ? ` · Piso ${habitacion.piso}`
+                          : ""}
+                        {habitacion.tipoNombre
+                          ? ` · ${trimText(habitacion.tipoNombre)}`
+                          : ""}
                       </option>
                     ))}
                   </select>
                   <FieldHint
-                    helpId={`habitacion_id_${index}-help`}
-                    errorId={`habitacion_id_${index}-error`}
-                    helpText={`GUID: ${item.habitacion_guid || "N/A"}`}
-                    errorText={getLineError(index, "habitacion_id")}
+                    helpId={`habitacion_guid_${index}-help`}
+                    errorId={`habitacion_guid_${index}-error`}
+                    helpText={
+                      !isValidGuid(form.sucursal_guid)
+                        ? "Elige la sucursal antes de asignar habitaciones."
+                        : !fechasReservaValidas
+                          ? "Completa las fechas de la reserva para ver habitaciones libres."
+                          : loadingHabitaciones
+                            ? "Consultando disponibilidad en alojamiento..."
+                            : `${habitacionesLinea.length} habitación(es) disponibles para el rango seleccionado.`
+                    }
+                    errorText={getLineError(index, "habitacion_guid")}
                   />
                 </div>
                 <div
-                  className={getFieldClassName(getLineError(index, "tarifa_id"), styles.fieldWide)}
+                  className={getFieldClassName(
+                    getLineError(index, "tarifa_guid"),
+                    styles.fieldWide
+                  )}
                 >
-                  <label htmlFor={`tarifa_id_${index}`}>Tarifa</label>
+                  <label htmlFor={`tarifa_guid_${index}`}>Tarifa</label>
                   <select
-                    id={`tarifa_id_${index}`}
-                    name="tarifa_id"
-                    value={item.tarifa_id}
+                    id={`tarifa_guid_${index}`}
+                    name="tarifa_guid"
+                    value={item.tarifa_guid}
                     onChange={(event) => handleLineaChange(index, event)}
-                    onBlur={() => handleLineaBlur(index, "tarifa_id")}
-                    aria-invalid={Boolean(getLineError(index, "tarifa_id"))}
+                    onBlur={() => handleLineaBlur(index, "tarifa_guid")}
+                    disabled={!isValidGuid(form.sucursal_guid)}
+                    aria-invalid={Boolean(getLineError(index, "tarifa_guid"))}
                     aria-describedby={getDescribedBy(
-                      `tarifa_id_${index}-help`,
-                      `tarifa_id_${index}-error`,
-                      getLineError(index, "tarifa_id")
+                      `tarifa_guid_${index}-help`,
+                      `tarifa_guid_${index}-error`,
+                      getLineError(index, "tarifa_guid")
                     )}
                   >
-                    <option value="">Selecciona una tarifa</option>
-                    {catalogs.tarifas.map((tarifa) => (
-                      <option key={tarifa.tarifaGuid} value={tarifa.idTarifa}>
-                        {trimText(tarifa.codigoTarifa)} - {trimText(tarifa.nombreTarifa)} - ID {tarifa.idTarifa}
+                    <option value="">
+                      {isValidGuid(form.sucursal_guid)
+                        ? "Selecciona una tarifa"
+                        : "Primero selecciona una sucursal"}
+                    </option>
+                    {tarifasPorSucursal.map((tarifa) => (
+                      <option key={tarifa.tarifaGuid} value={tarifa.tarifaGuid}>
+                        {trimText(tarifa.codigoTarifa)} · {trimText(tarifa.nombreTarifa)}
                       </option>
                     ))}
                   </select>
                   <FieldHint
-                    helpId={`tarifa_id_${index}-help`}
-                    errorId={`tarifa_id_${index}-error`}
-                    helpText={`GUID: ${item.tarifa_guid || "N/A"}`}
-                    errorText={getLineError(index, "tarifa_id")}
+                    helpId={`tarifa_guid_${index}-help`}
+                    errorId={`tarifa_guid_${index}-error`}
+                    helpText={
+                      isValidGuid(form.sucursal_guid)
+                        ? `${tarifasPorSucursal.length} tarifa(s) activas para la sucursal.`
+                        : "Elige la sucursal antes de asignar tarifas."
+                    }
+                    errorText={getLineError(index, "tarifa_guid")}
                   />
                 </div>
                 <div
@@ -743,7 +1019,8 @@ export default function ReservaFormPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

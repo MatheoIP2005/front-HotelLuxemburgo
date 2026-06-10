@@ -1,20 +1,31 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useReservas from "../../../hooks/useReservas";
+import { extractApiErrorMessage } from "../../../utils/api";
 import styles from "./ReservasPage.module.css";
 
 export default function ReservasPage() {
   const navigate = useNavigate();
   const { reservas, loading, error, handleConfirmar, handleCancelar } = useReservas();
   const [actionError, setActionError] = useState(null);
+  const [confirmingId, setConfirmingId] = useState(null);
 
   const onConfirmar = async (id) => {
+    if (!id || confirmingId) return;
     if (!window.confirm("¿Deseas confirmar esta reserva?")) return;
     setActionError(null);
+    setConfirmingId(id);
     try {
       await handleConfirmar(id);
     } catch (err) {
-      setActionError(err?.response?.data?.message || "No se pudo confirmar la reserva.");
+      setActionError(
+        extractApiErrorMessage(
+          err,
+          "No se pudo confirmar la reserva. La habitación puede estar ocupada o el servicio de alojamiento no está disponible."
+        )
+      );
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -30,7 +41,9 @@ export default function ReservasPage() {
     try {
       await handleCancelar(id, motivoNormalizado);
     } catch (err) {
-      setActionError(err?.response?.data?.message || "No se pudo cancelar la reserva.");
+      setActionError(
+        extractApiErrorMessage(err, "No se pudo cancelar la reserva.")
+      );
     }
   };
 
@@ -114,8 +127,11 @@ export default function ReservasPage() {
                           type="button"
                           className={styles.btnPrimary}
                           onClick={() => onConfirmar(r.reservaGuid ?? r.guidReserva)}
+                          disabled={Boolean(confirmingId)}
                         >
-                          Confirmar
+                          {confirmingId === (r.reservaGuid ?? r.guidReserva)
+                            ? "Confirmando..."
+                            : "Confirmar"}
                         </button>
                       )}
                       {(r.estadoReserva === "PEN" || r.estadoReserva === "CON") && (

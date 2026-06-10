@@ -23,7 +23,7 @@ export default function useHabitaciones() {
     setLoading(true);
     setError(null);
     try {
-      const response = await getHabitaciones({ pagina: 1, limite: 10, ...params });
+      const response = await getHabitaciones({ pagina: 1, limite: 500, ...params });
       const collection = normalizeCollectionPayload(response, { pagina: 1, limite: 10 });
       setData(collection.items);
       setPagination({

@@ -30,6 +30,33 @@
   box-shadow: 0 0 0 4px rgba(124, 131, 253, 0.14);
 }
 
+.triggerAdmin {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #d9d4ea;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #1f1731;
+}
+
+.triggerAdmin:hover {
+  border-color: #c8c0e4;
+}
+
+.triggerAdmin:focus-visible {
+  box-shadow: 0 0 0 3px rgba(124, 131, 253, 0.16);
+}
+
+.triggerError {
+  border-color: #e67c73;
+  box-shadow: 0 0 0 3px rgba(230, 124, 115, 0.12);
+}
+
+.triggerError:focus-visible {
+  border-color: #e67c73;
+  box-shadow: 0 0 0 3px rgba(230, 124, 115, 0.16);
+}
+
 .value,
 .placeholder {
   white-space: nowrap;

@@ -15,7 +15,7 @@ import {
   hacerCheckin,
 } from "../../../services/estadias.service";
 import { getSucursales } from "../../../services/sucursales.service";
-import { normalizeCollectionPayload } from "../../../utils/api";
+import { extractApiErrorMessage, normalizeCollectionPayload } from "../../../utils/api";
 import styles from "./ReservasPage.module.css";
 
 const formatDate = (value) => {
@@ -29,6 +29,24 @@ const formatCurrency = (value) => {
   const amount = Number(value ?? 0);
   if (Number.isNaN(amount)) return "$0.00";
   return `$${amount.toFixed(2)}`;
+};
+
+const trimText = (value) => String(value ?? "").trim();
+
+const getClienteDisplayName = (cliente) => {
+  if (!cliente) return null;
+  const nombre = `${trimText(cliente.nombres)} ${trimText(cliente.apellidos)}`.trim();
+  const identificacion = trimText(cliente.numeroIdentificacion);
+  if (nombre && identificacion) return `${nombre} (${identificacion})`;
+  return nombre || identificacion || null;
+};
+
+const getSucursalDisplayName = (sucursal) => {
+  if (!sucursal) return null;
+  const nombre = trimText(sucursal.nombreSucursal);
+  const codigo = trimText(sucursal.codigoSucursal);
+  if (nombre && codigo) return `${nombre} (${codigo})`;
+  return nombre || codigo || null;
 };
 
 const getReservaGuid = (reserva, fallback) =>
@@ -137,6 +155,22 @@ export default function ReservaDetallePage() {
     [cargosReserva]
   );
 
+  const clienteDisplayName = useMemo(() => {
+    if (!reserva?.clienteGuid) return "-";
+    const cliente = catalogs.clientes.find(
+      (item) => item.clienteGuid === reserva.clienteGuid
+    );
+    return getClienteDisplayName(cliente) ?? "Cliente no encontrado";
+  }, [reserva, catalogs.clientes]);
+
+  const sucursalDisplayName = useMemo(() => {
+    if (!reserva?.sucursalGuid) return "-";
+    const sucursal = catalogs.sucursales.find(
+      (item) => item.sucursalGuid === reserva.sucursalGuid
+    );
+    return getSucursalDisplayName(sucursal) ?? "Sucursal no encontrada";
+  }, [reserva, catalogs.sucursales]);
+
   const loadFacturaPagos = useCallback(async (facturaGuid) => {
     if (!facturaGuid) {
       setFacturaPagos([]);
@@ -164,7 +198,7 @@ export default function ReservaDetallePage() {
         await Promise.all([
           getReserva(reservaGuid),
           getClientes({ pagina: 1, limite: 500 }),
-          getSucursales({ pagina: 1, limite: 500 }),
+          getSucursales(),
           getFacturasByReserva(reservaGuid).catch(() => []),
           getEstadias({ pagina: 1, limite: 200, reservaGuid }).catch(() => []),
         ]);
@@ -223,16 +257,8 @@ export default function ReservaDetallePage() {
   }, [id, loadData]);
 
   const buildFacturaBody = (mode) => {
-    const clienteGuid =
-      reserva?.clienteGuid ??
-      catalogs.clientes.find(
-        (item) => String(item.idCliente) === String(reserva?.idCliente)
-      )?.clienteGuid;
-    const sucursalGuid =
-      reserva?.sucursalGuid ??
-      catalogs.sucursales.find(
-        (item) => String(item.idSucursal) === String(reserva?.idSucursal)
-      )?.sucursalGuid;
+    const clienteGuid = reserva?.clienteGuid;
+    const sucursalGuid = reserva?.sucursalGuid;
 
     if (!clienteGuid) {
       throw new Error("No se pudo resolver `clienteGuid` para generar la factura.");
@@ -360,7 +386,12 @@ export default function ReservaDetallePage() {
       setSuccess("Check-in realizado correctamente.");
       await loadData();
     } catch (err) {
-      setActionError(err?.response?.data?.message || err?.message || "No se pudo realizar el check-in.");
+      setActionError(
+        extractApiErrorMessage(
+          err,
+          "No se pudo realizar el check-in. Verifique que la reserva esté confirmada (CON)."
+        )
+      );
     } finally {
       setActionLoading(false);
     }
@@ -389,9 +420,8 @@ export default function ReservaDetallePage() {
             <table className={styles.table}>
               <tbody>
                 <tr><th>Código</th><td>{reserva.codigoReserva}</td></tr>
-                <tr><th>GUID</th><td>{getReservaGuid(reserva, id)}</td></tr>
-                <tr><th>Cliente</th><td>{reserva.clienteGuid ?? reserva.idCliente}</td></tr>
-                <tr><th>Sucursal</th><td>{reserva.sucursalGuid ?? reserva.idSucursal}</td></tr>
+                <tr><th>Cliente</th><td>{clienteDisplayName}</td></tr>
+                <tr><th>Sucursal</th><td>{sucursalDisplayName}</td></tr>
                 <tr><th>Inicio</th><td>{formatDate(reserva.fechaInicio)}</td></tr>
                 <tr><th>Fin</th><td>{formatDate(reserva.fechaFin)}</td></tr>
                 <tr><th>Subtotal</th><td>{formatCurrency(reserva.subtotalReserva)}</td></tr>

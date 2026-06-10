@@ -129,6 +129,28 @@
   color: #cc0000;
 }
 
+.badgeOcupada {
+  background: #fff7e6;
+  color: #ad6800;
+}
+
+.badgeMantenimiento {
+  background: #f0f5ff;
+  color: #1d39c4;
+}
+
+.sucursalCell {
+  max-width: 220px;
+}
+
+.sucursalNombre {
+  display: block;
+  font-weight: 600;
+  color: #1a1a2e;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 .actions {
   display: flex;
   gap: 8px;

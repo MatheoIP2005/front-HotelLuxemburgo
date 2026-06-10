@@ -4,7 +4,7 @@ import {
   confirmarReserva,
   getReservas,
 } from "../services/reservas.service";
-import { normalizeCollectionPayload } from "../utils/api";
+import { extractApiErrorMessage, normalizeCollectionPayload } from "../utils/api";
 
 export default function useReservas() {
   const [data, setData] = useState([]);
@@ -17,13 +17,8 @@ export default function useReservas() {
     totalPaginas: 0,
   });
   const lastQueryRef = useRef({});
-  const getErrorMessage = (err) => {
-    const apiError = err?.response?.data;
-    if (Array.isArray(apiError?.errors) && apiError.errors.length > 0) {
-      return `${apiError.message || "Error al cargar reservas"}: ${apiError.errors.join(" | ")}`;
-    }
-    return apiError?.message || "Error al cargar reservas";
-  };
+  const getErrorMessage = (err) =>
+    extractApiErrorMessage(err, "Error al cargar reservas");
 
   const fetchData = useCallback(async (params = {}) => {
     lastQueryRef.current = params;

@@ -12,16 +12,29 @@ import { HABITACION_ESTADOS, MAX_LENGTHS } from "../../../utils/constraints";
 import styles from "../usuarios/UsuarioFormPage.module.css";
 
 const EMPTY_FORM = {
-  id_sucursal: "",
   sucursal_guid: "",
-  id_tipo_habitacion: "",
   tipo_habitacion_guid: "",
+  capacidad_habitacion: "",
   numero_habitacion: "",
   piso: "",
   precio_base: "",
   descripcion_habitacion: "",
   estado_habitacion: "DIS",
-  row_version: null,
+};
+
+const isValidGuid = (value) =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+
+const getCapacidadFromTipo = (tipo) => {
+  if (!tipo) return 0;
+  const total = Number(tipo.capacidadTotal);
+  if (Number.isFinite(total) && total > 0) return total;
+  const adultos = Number(tipo.capacidadAdultos) || 0;
+  const ninos = Number(tipo.capacidadNinos) || 0;
+  return adultos + ninos > 0 ? adultos + ninos : 0;
 };
 
 const trimText = (value) => (typeof value === "string" ? value.trim() : value);
@@ -59,12 +72,12 @@ const validateHabitacionForm = (form, isEditMode) => {
   const precioBase = Number(form.precio_base);
   const piso = form.piso === "" ? null : Number(form.piso);
 
-  if (!form.id_sucursal || Number(form.id_sucursal) <= 0) {
-    errors.id_sucursal = "Selecciona una sucursal válida.";
+  if (!isValidGuid(form.sucursal_guid)) {
+    errors.sucursal_guid = "Selecciona una sucursal válida.";
   }
 
-  if (!form.id_tipo_habitacion || Number(form.id_tipo_habitacion) <= 0) {
-    errors.id_tipo_habitacion = "Selecciona un tipo de habitación válido.";
+  if (!isValidGuid(form.tipo_habitacion_guid)) {
+    errors.tipo_habitacion_guid = "Selecciona un tipo de habitación válido.";
   }
 
   if (!numeroHabitacion) {
@@ -142,23 +155,21 @@ export default function HabitacionFormPage() {
           return;
         }
 
+        const tipoHabitacionGuid = trimText(item.tipoHabitacionGuid) ?? "";
+        const tipoRelacionado = availableTipos.find(
+          (option) => option.tipoHabitacionGuid === tipoHabitacionGuid
+        );
+
         setForm({
-          id_sucursal: item.idSucursal ?? "",
-          sucursal_guid:
-            availableSucursales.find(
-              (option) => option.idSucursal === item.idSucursal
-            )?.sucursalGuid ?? "",
-          id_tipo_habitacion: item.idTipoHabitacion ?? "",
-          tipo_habitacion_guid:
-            availableTipos.find(
-              (option) => option.idTipoHabitacion === item.idTipoHabitacion
-            )?.tipoHabitacionGuid ?? trimText(item.tipoHabitacionGuid) ?? "",
+          sucursal_guid: trimText(item.sucursalGuid) ?? "",
+          tipo_habitacion_guid: tipoHabitacionGuid,
+          capacidad_habitacion:
+            item.capacidadHabitacion ?? getCapacidadFromTipo(tipoRelacionado) ?? "",
           numero_habitacion: trimText(item.numeroHabitacion) ?? "",
           piso: item.piso ?? "",
           precio_base: item.precioBase ?? "",
           descripcion_habitacion: trimText(item.descripcionHabitacion) ?? "",
           estado_habitacion: trimText(item.estadoHabitacion) ?? "DIS",
-          row_version: item.rowVersion ?? null,
         });
         setTouchedFields({});
         setSubmitAttempted(false);
@@ -179,10 +190,9 @@ export default function HabitacionFormPage() {
   const selectedTipoHabitacion = useMemo(
     () =>
       catalogs.tiposHabitacion.find(
-        (item) =>
-          String(item.idTipoHabitacion) === String(form.id_tipo_habitacion)
+        (item) => item.tipoHabitacionGuid === form.tipo_habitacion_guid
       ) ?? null,
-    [catalogs.tiposHabitacion, form.id_tipo_habitacion]
+    [catalogs.tiposHabitacion, form.tipo_habitacion_guid]
   );
 
   const showFieldError = (fieldName) =>
@@ -203,26 +213,19 @@ export default function HabitacionFormPage() {
     setError(null);
     setSuccess(null);
 
-    if (name === "id_sucursal") {
-      const sucursal = catalogs.sucursales.find(
-        (item) => String(item.idSucursal) === String(value)
-      );
-      setForm((prev) => ({
-        ...prev,
-        id_sucursal: value,
-        sucursal_guid: sucursal?.sucursalGuid ?? "",
-      }));
+    if (name === "sucursal_guid") {
+      setForm((prev) => ({ ...prev, sucursal_guid: value }));
       return;
     }
 
-    if (name === "id_tipo_habitacion") {
+    if (name === "tipo_habitacion_guid") {
       const tipo = catalogs.tiposHabitacion.find(
-        (item) => String(item.idTipoHabitacion) === String(value)
+        (item) => item.tipoHabitacionGuid === value
       );
       setForm((prev) => ({
         ...prev,
-        id_tipo_habitacion: value,
-        tipo_habitacion_guid: tipo?.tipoHabitacionGuid ?? "",
+        tipo_habitacion_guid: value,
+        capacidad_habitacion: getCapacidadFromTipo(tipo),
       }));
       return;
     }
@@ -247,22 +250,41 @@ export default function HabitacionFormPage() {
       const numeroHabitacion = form.numero_habitacion.trim();
       const descripcionHabitacion = form.descripcion_habitacion.trim();
 
-      const payload = {
-        idSucursal: Number(form.id_sucursal),
-        idTipoHabitacion: Number(form.id_tipo_habitacion),
+      const capacidadHabitacion = isEditMode
+        ? Number(form.capacidad_habitacion) ||
+          getCapacidadFromTipo(selectedTipoHabitacion)
+        : getCapacidadFromTipo(selectedTipoHabitacion);
+
+      if (!isEditMode && capacidadHabitacion <= 0) {
+        setError(
+          "El tipo de habitación seleccionado no tiene capacidad configurada."
+        );
+        return;
+      }
+
+      const basePayload = {
         numeroHabitacion,
         piso: form.piso === "" ? null : Number(form.piso),
         precioBase: Number(form.precio_base),
         descripcionHabitacion: descripcionHabitacion || null,
-        estadoHabitacion: form.estado_habitacion,
-        rowVersion: form.row_version,
+        capacidadHabitacion,
+        capacidadTotal: selectedTipoHabitacion?.capacidadTotal,
+        capacidadAdultos: selectedTipoHabitacion?.capacidadAdultos,
+        capacidadNinos: selectedTipoHabitacion?.capacidadNinos,
       };
 
       if (isEditMode) {
-        await updateHabitacion(id, payload);
+        await updateHabitacion(id, {
+          ...basePayload,
+          estadoHabitacion: form.estado_habitacion,
+        });
         setSuccess("Habitación actualizada correctamente.");
       } else {
-        await createHabitacion(payload);
+        await createHabitacion({
+          ...basePayload,
+          sucursalGuid: form.sucursal_guid,
+          tipoHabitacionGuid: form.tipo_habitacion_guid,
+        });
         setSuccess("Habitación creada correctamente.");
       }
       setTimeout(() => navigate("/admin/habitaciones"), 1500);
@@ -292,81 +314,80 @@ export default function HabitacionFormPage() {
       <section className={styles.card}>
         <h3 className={styles.sectionTitle}>Información</h3>
         <div className={styles.grid3}>
-          <div className={getFieldClassName("fieldWide", "id_sucursal")}>
-            <label htmlFor="id_sucursal">Sucursal</label>
+          <div className={getFieldClassName("fieldWide", "sucursal_guid")}>
+            <label htmlFor="sucursal_guid">Sucursal</label>
             <select
-              id="id_sucursal"
-              name="id_sucursal"
-              value={form.id_sucursal}
+              id="sucursal_guid"
+              name="sucursal_guid"
+              value={form.sucursal_guid}
               onChange={handleChange}
               onBlur={handleBlur}
-              aria-invalid={showFieldError("id_sucursal")}
+              disabled={isEditMode}
+              aria-invalid={showFieldError("sucursal_guid")}
               aria-describedby={getFieldDescribedBy(
-                "id_sucursal",
-                showFieldError("id_sucursal")
+                "sucursal_guid",
+                showFieldError("sucursal_guid")
               )}
             >
               <option value="">Selecciona una sucursal</option>
               {catalogs.sucursales.map((item) => (
-                <option key={item.sucursalGuid} value={item.idSucursal}>
-                  {item.nombreSucursal} ({item.codigoSucursal}) - ID {item.idSucursal}
+                <option key={item.sucursalGuid} value={item.sucursalGuid}>
+                  {item.nombreSucursal} ({item.codigoSucursal})
                 </option>
               ))}
             </select>
             <div className={styles.fieldMeta}>
-              <span id={getFieldIds("id_sucursal").help} className={styles.helperText}>
-                Selecciona la sucursal asociada a la habitación. GUID:{" "}
-                {form.sucursal_guid || "N/A"}
+              <span id={getFieldIds("sucursal_guid").help} className={styles.helperText}>
+                Selecciona la sucursal asociada a la habitación.
+                {isEditMode ? " No se puede cambiar al editar." : ""}
               </span>
             </div>
-            {showFieldError("id_sucursal") && (
+            {showFieldError("sucursal_guid") && (
               <span
-                id={getFieldIds("id_sucursal").error}
+                id={getFieldIds("sucursal_guid").error}
                 className={styles.errorText}
               >
-                {fieldErrors.id_sucursal}
+                {fieldErrors.sucursal_guid}
               </span>
             )}
           </div>
-          <div className={getFieldClassName("fieldWide", "id_tipo_habitacion")}>
-            <label htmlFor="id_tipo_habitacion">Tipo de habitación</label>
+          <div className={getFieldClassName("fieldWide", "tipo_habitacion_guid")}>
+            <label htmlFor="tipo_habitacion_guid">Tipo de habitación</label>
             <select
-              id="id_tipo_habitacion"
-              name="id_tipo_habitacion"
-              value={form.id_tipo_habitacion}
+              id="tipo_habitacion_guid"
+              name="tipo_habitacion_guid"
+              value={form.tipo_habitacion_guid}
               onChange={handleChange}
               onBlur={handleBlur}
-              aria-invalid={showFieldError("id_tipo_habitacion")}
+              disabled={isEditMode}
+              aria-invalid={showFieldError("tipo_habitacion_guid")}
               aria-describedby={getFieldDescribedBy(
-                "id_tipo_habitacion",
-                showFieldError("id_tipo_habitacion")
+                "tipo_habitacion_guid",
+                showFieldError("tipo_habitacion_guid")
               )}
             >
               <option value="">Selecciona un tipo</option>
               {catalogs.tiposHabitacion.map((item) => (
-                <option
-                  key={item.tipoHabitacionGuid}
-                  value={item.idTipoHabitacion}
-                >
-                  {item.nombreTipoHabitacion} ({item.codigoTipoHabitacion}) - ID {item.idTipoHabitacion}
+                <option key={item.tipoHabitacionGuid} value={item.tipoHabitacionGuid}>
+                  {item.nombreTipoHabitacion} ({item.codigoTipoHabitacion})
                 </option>
               ))}
             </select>
             <div className={styles.fieldMeta}>
               <span
-                id={getFieldIds("id_tipo_habitacion").help}
+                id={getFieldIds("tipo_habitacion_guid").help}
                 className={styles.helperText}
               >
-                Elige la categoría operativa de la habitación. GUID:{" "}
-                {form.tipo_habitacion_guid || "N/A"}
+                Elige la categoría operativa de la habitación.
+                {isEditMode ? " No se puede cambiar al editar." : ""}
               </span>
             </div>
-            {showFieldError("id_tipo_habitacion") && (
+            {showFieldError("tipo_habitacion_guid") && (
               <span
-                id={getFieldIds("id_tipo_habitacion").error}
+                id={getFieldIds("tipo_habitacion_guid").error}
                 className={styles.errorText}
               >
-                {fieldErrors.id_tipo_habitacion}
+                {fieldErrors.tipo_habitacion_guid}
               </span>
             )}
           </div>

@@ -61,8 +61,12 @@ export default function ValoracionesPage() {
     <div className={styles.page}>
       <div className={styles.topBar}>
         <h2>Valoraciones</h2>
-        <div>
-          <select value={sucursalGuid} onChange={(e) => setSucursalGuid(e.target.value)}>
+        <div className={styles.filters}>
+          <select
+            className={styles.filterSelect}
+            value={sucursalGuid}
+            onChange={(e) => setSucursalGuid(e.target.value)}
+          >
             <option value="">Selecciona una sucursal</option>
             {sucursales.map((item) => (
               <option key={item.sucursalGuid} value={item.sucursalGuid}>

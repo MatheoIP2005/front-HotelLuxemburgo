@@ -1,6 +1,54 @@
 export const extractApiPayload = (response) =>
   response?.data?.data ?? response?.data ?? null;
 
+export const extractApiErrorMessage = (err, fallback = "Ocurrió un error inesperado.") => {
+  let apiError = err?.response?.data;
+
+  if (typeof apiError === "string") {
+    try {
+      apiError = JSON.parse(apiError);
+    } catch {
+      return apiError.trim() || fallback;
+    }
+  }
+
+  if (apiError?.data && typeof apiError.data === "object") {
+    apiError = apiError.data;
+  }
+
+  const details =
+    apiError?.details ?? apiError?.Details ?? apiError?.errors ?? apiError?.Errors;
+
+  if (Array.isArray(details) && details.length > 0) {
+    const title = apiError?.message || apiError?.error || apiError?.Error;
+    const genericTitles = new Set([
+      "conflicto",
+      "conflict",
+      "solicitud inválida",
+      "no encontrado",
+      "error interno del servidor",
+    ]);
+    if (title && !genericTitles.has(String(title).toLowerCase())) {
+      return `${title}: ${details.join(" | ")}`;
+    }
+    return details.join(" | ");
+  }
+
+  const explicit =
+    apiError?.message || apiError?.error || apiError?.Error || apiError?.title;
+
+  if (explicit) {
+    return explicit;
+  }
+
+  const axiosMessage = String(err?.message ?? "");
+  if (/^Request failed with status code \d+$/i.test(axiosMessage)) {
+    return fallback;
+  }
+
+  return axiosMessage || fallback;
+};
+
 export const extractApiList = (response) => {
   const payload = extractApiPayload(response);
 

@@ -106,9 +106,14 @@ export default function MinimalDateInput({
   id,
   value,
   onChange,
+  onBlur,
   minDate,
   maxDate,
   placeholder = 'dd/mm/aaaa',
+  variant = 'public',
+  hasError = false,
+  className = '',
+  'aria-describedby': ariaDescribedBy,
 }) {
   const wrapperRef = useRef(null);
   const selectedDate = useMemo(() => parseIsoDate(value), [value]);
@@ -178,16 +183,28 @@ export default function MinimalDateInput({
   const canGoPrevMonth = !minDateValue || !isBefore(addMonths(visibleMonth, -1), startOfMonth(minDateValue));
   const canGoNextMonth = !maxDateValue || !isAfter(addMonths(visibleMonth, 1), startOfMonth(maxDateValue));
 
+  const triggerClassName = [
+    styles.trigger,
+    variant === 'admin' ? styles.triggerAdmin : '',
+    hasError ? styles.triggerError : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className={styles.wrapper} ref={wrapperRef}>
       <button
         id={id}
         type="button"
-        className={styles.trigger}
+        className={triggerClassName}
         onClick={() => setIsOpen((prev) => !prev)}
+        onBlur={onBlur}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls={`${id}-calendar`}
+        aria-invalid={hasError || undefined}
+        aria-describedby={ariaDescribedBy}
       >
         <span className={selectedDate ? styles.value : styles.placeholder}>{displayValue}</span>
         <CalendarIcon />

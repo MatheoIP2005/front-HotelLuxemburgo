@@ -1,36 +1,96 @@
 import internalApi from "../api/internalApi";
-import { extractApiPayload } from "../utils/api";
-
-const toNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
+import publicApi from "../api/publicApi";
+import { extractApiList, extractApiPayload } from "../utils/api";
 
 const toNullableNumber = (value) =>
   value === null || value === undefined || value === "" ? null : Number(value);
 
+const resolveCapacidadHabitacion = (data = {}) => {
+  const explicit = Number(data.capacidadHabitacion);
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return explicit;
+  }
+
+  const total = Number(data.capacidadTotal);
+  if (Number.isFinite(total) && total > 0) {
+    return total;
+  }
+
+  const adultos = Number(data.capacidadAdultos) || 0;
+  const ninos = Number(data.capacidadNinos) || 0;
+  const sum = adultos + ninos;
+  return sum > 0 ? sum : 0;
+};
+
 const toCreateHabitacionPayload = (data = {}) => ({
-  idSucursal: toNumber(data.idSucursal, 0),
-  idTipoHabitacion: toNumber(data.idTipoHabitacion, 0),
+  sucursalGuid: data.sucursalGuid ?? "",
+  tipoHabitacionGuid: data.tipoHabitacionGuid ?? "",
   numeroHabitacion: data.numeroHabitacion ?? "",
   piso: toNullableNumber(data.piso),
-  precioBase: toNumber(data.precioBase, 0),
+  capacidadHabitacion: resolveCapacidadHabitacion(data),
+  precioBase: Number(data.precioBase) || 0,
   descripcionHabitacion: data.descripcionHabitacion ?? null,
 });
 
 const toUpdateHabitacionPayload = (data = {}) => ({
-  idTipoHabitacion: toNumber(data.idTipoHabitacion, 0),
   numeroHabitacion: data.numeroHabitacion ?? "",
   piso: toNullableNumber(data.piso),
-  precioBase: toNumber(data.precioBase, 0),
+  capacidadHabitacion: resolveCapacidadHabitacion(data),
+  precioBase: Number(data.precioBase) || 0,
   descripcionHabitacion: data.descripcionHabitacion ?? null,
   estadoHabitacion: data.estadoHabitacion ?? "DIS",
-  rowVersion: data.rowVersion ?? null,
 });
 
 export const getHabitaciones = async (params) => {
   const response = await internalApi.get("/habitaciones", { params });
   return extractApiPayload(response);
+};
+
+const normalizeHabitacionDisponible = (item = {}) => ({
+  habitacionGuid: item.habitacionGuid ?? item.HabitacionGuid ?? "",
+  tipoHabitacionGuid: item.tipoHabitacionGuid ?? item.TipoHabitacionGuid ?? "",
+  tipoNombre: item.tipoNombre ?? item.TipoNombre ?? "",
+  numeroHabitacion: item.numeroHabitacion ?? item.NumeroHabitacion ?? "",
+  piso: item.piso ?? item.Piso ?? null,
+  precioBase: Number(item.precioBase ?? item.PrecioBase ?? 0),
+  estadoHabitacion: item.estadoHabitacion ?? item.EstadoHabitacion ?? "DIS",
+  disponibleEnRango:
+    item.disponibleEnRango ?? item.DisponibleEnRango ?? true,
+  capacidadAdultos: Number(item.capacidadAdultos ?? item.CapacidadAdultos ?? 0),
+  capacidadNinos: Number(item.capacidadNinos ?? item.CapacidadNinos ?? 0),
+});
+
+/**
+ * Habitaciones disponibles para una sucursal y rango de fechas (estado DIS + listado del backend).
+ */
+export const getHabitacionesDisponiblesPorSucursal = async ({
+  sucursalGuid,
+  fechaInicio,
+  fechaFin,
+  tipoHabitacionGuid,
+} = {}) => {
+  const params = {
+    fechaInicio,
+    fechaFin,
+  };
+
+  if (tipoHabitacionGuid) {
+    params.tipo_habitacion_guid = tipoHabitacionGuid;
+  }
+
+  const response = await publicApi.get(
+    `/public/sucursales/${sucursalGuid}/habitaciones`,
+    { params }
+  );
+
+  return extractApiList(response)
+    .map(normalizeHabitacionDisponible)
+    .filter(
+      (habitacion) =>
+        habitacion.habitacionGuid &&
+        habitacion.disponibleEnRango &&
+        habitacion.estadoHabitacion === "DIS"
+    );
 };
 
 export const getHabitacion = async (id) => {

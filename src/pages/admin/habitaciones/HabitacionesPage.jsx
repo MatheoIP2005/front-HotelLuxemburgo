@@ -1,12 +1,89 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useHabitaciones from "../../../hooks/useHabitaciones";
+import { getSucursales } from "../../../services/sucursales.service";
+import { normalizeCollectionPayload } from "../../../utils/api";
 import styles from "./HabitacionesPage.module.css";
+
+const trimText = (value) => String(value ?? "").trim();
+
+const ESTADO_LABELS = {
+  DIS: "Disponible",
+  OCU: "Ocupada",
+  MNT: "Mantenimiento",
+  FDS: "Fuera de servicio",
+  INA: "Inactiva",
+};
+
+const getEstadoLabel = (estado) =>
+  ESTADO_LABELS[estado] ?? (trimText(estado) || "Sin estado");
+
+const getEstadoBadgeClass = (estado) => {
+  if (estado === "DIS") return styles.badgeActive;
+  if (estado === "OCU") return styles.badgeOcupada;
+  if (estado === "MNT") return styles.badgeMantenimiento;
+  return styles.badgeInactive;
+};
 
 export default function HabitacionesPage() {
   const navigate = useNavigate();
   const { habitaciones, loading, error, handleDelete, handleCambiarEstado } = useHabitaciones();
+  const [sucursales, setSucursales] = useState([]);
   const [actionError, setActionError] = useState(null);
+
+  useEffect(() => {
+    const loadSucursales = async () => {
+      try {
+        const response = await getSucursales();
+        setSucursales(normalizeCollectionPayload(response).items);
+      } catch {
+        setSucursales([]);
+      }
+    };
+
+    loadSucursales();
+  }, []);
+
+  const sucursalPorGuid = useMemo(() => {
+    const map = new Map();
+    sucursales.forEach((sucursal) => {
+      if (sucursal?.sucursalGuid) {
+        map.set(String(sucursal.sucursalGuid), sucursal);
+      }
+    });
+    return map;
+  }, [sucursales]);
+
+  const getSucursalDisplay = (habitacion) => {
+    const sucursal = sucursalPorGuid.get(String(habitacion?.sucursalGuid ?? ""));
+    if (!sucursal) {
+      return habitacion?.sucursalGuid
+        ? `Sucursal (${String(habitacion.sucursalGuid).slice(0, 8)}…)`
+        : "Sin sucursal";
+    }
+
+    const nombre = trimText(sucursal.nombreSucursal);
+    const codigo = trimText(sucursal.codigoSucursal);
+    if (nombre && codigo) return `${nombre} (${codigo})`;
+    return nombre || codigo || "Sucursal";
+  };
+
+  const habitacionesOrdenadas = useMemo(
+    () =>
+      [...habitaciones].sort((a, b) => {
+        const sucursalA = getSucursalDisplay(a).toLocaleLowerCase("es");
+        const sucursalB = getSucursalDisplay(b).toLocaleLowerCase("es");
+        if (sucursalA !== sucursalB) {
+          return sucursalA.localeCompare(sucursalB, "es");
+        }
+        return String(a.numeroHabitacion ?? "").localeCompare(
+          String(b.numeroHabitacion ?? ""),
+          "es",
+          { numeric: true }
+        );
+      }),
+    [habitaciones, sucursalPorGuid]
+  );
 
   const onDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de eliminar esta habitación?")) return;
@@ -46,6 +123,7 @@ export default function HabitacionesPage() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th>Sucursal</th>
               <th>Número</th>
               <th>Piso</th>
               <th>Precio Base</th>
@@ -57,34 +135,34 @@ export default function HabitacionesPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className={styles.loadingMsg}>
+                <td colSpan={7} className={styles.loadingMsg}>
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && habitaciones.length === 0 && (
               <tr>
-                <td colSpan={6} className={styles.emptyMsg}>
+                <td colSpan={7} className={styles.emptyMsg}>
                   No hay registros
                 </td>
               </tr>
             )}
             {!loading &&
-              habitaciones.map((h) => (
+              habitacionesOrdenadas.map((h) => (
                 <tr key={h.habitacionGuid}>
+                  <td className={styles.sucursalCell}>
+                    <span className={styles.sucursalNombre}>{getSucursalDisplay(h)}</span>
+                  </td>
                   <td>{h.numeroHabitacion}</td>
                   <td>{h.piso ?? "N/A"}</td>
                   <td>${h.precioBase}</td>
                   <td>{`${h.tipoCapacidadAdultos ?? 0}A / ${h.tipoCapacidadNinos ?? 0}N`}</td>
                   <td>
                     <span
-                      className={`${styles.badge} ${
-                        h.estadoHabitacion === "DIS"
-                          ? styles.badgeActive
-                          : styles.badgeInactive
-                      }`}
+                      className={`${styles.badge} ${getEstadoBadgeClass(h.estadoHabitacion)}`}
+                      title={h.estadoHabitacion}
                     >
-                      {h.estadoHabitacion}
+                      {getEstadoLabel(h.estadoHabitacion)}
                     </span>
                   </td>
                   <td>
