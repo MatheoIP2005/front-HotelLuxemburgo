@@ -35,3 +35,18 @@ npm run dev
 npm run build
 npm run lint
 ```
+
+## App movil React Native
+
+La app mobile paralela vive en `mobile/` y usa Expo. Comparte servicios
+publicos con la web y consume el mismo Gateway configurado con
+`EXPO_PUBLIC_API_BASE_URL`.
+
+```bash
+npm run mobile:install
+npm run mobile:start
+```
+
+Ver `mobile/README.md` para configuracion local y notas de validacion.
+
+**iPhone fisico con Expo Go:** guia paso a paso en [`docs/expo_go_runbook.md`](docs/expo_go_runbook.md) (IP LAN, Safari `/health`, firewall).

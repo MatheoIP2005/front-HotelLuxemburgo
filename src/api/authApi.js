@@ -1,33 +1,14 @@
-import axios from "axios";
 import { AUTH_API_BASE_URL } from "./apiConfig";
+import { createAuthenticatedHttpClient } from "../shared/api/httpClient";
+import { webAuthStorage } from "../platform/webAuthStorage";
 
-const authApi = axios.create({
+const authApi = createAuthenticatedHttpClient({
   baseURL: AUTH_API_BASE_URL,
-});
-
-authApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-
-    if (token && !config.headers?.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
+  tokenStorage: webAuthStorage,
+  onUnauthorized: async () => {
+    await webAuthStorage.clearAll();
+    window.location.href = "/admin/login";
   },
-  (error) => Promise.reject(error)
-);
-
-authApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error?.response?.status === 401 && !error?.config?.skipAuthRedirect) {
-      localStorage.clear();
-      window.location.href = "/admin/login";
-    }
-
-    return Promise.reject(error);
-  }
-);
+});
 
 export default authApi;

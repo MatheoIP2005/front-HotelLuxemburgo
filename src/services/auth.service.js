@@ -1,5 +1,6 @@
 import authApi from "../api/authApi";
 import { extractApiPayload } from "../utils/api";
+import { webAuthStorage } from "../platform/webAuthStorage";
 
 const authenticate = async (username, password, config = {}) => {
   const response = await authApi.post("/login", { username, password }, config);
@@ -11,13 +12,13 @@ export const login = async (username, password) => {
 };
 
 export const logout = async () => {
-  const refreshToken = localStorage.getItem("refresh_token");
+  const refreshToken = await webAuthStorage.getRefreshToken();
   const response = await authApi.post("/logout", { refreshToken }, { skipAuthRedirect: true });
   return extractApiPayload(response);
 };
 
 export const refreshToken = async (refresh_token) => {
-  const token = refresh_token || localStorage.getItem("refresh_token");
+  const token = refresh_token || (await webAuthStorage.getRefreshToken());
   const response = await authApi.post("/refresh", {
     refreshToken: token,
   });

@@ -567,7 +567,7 @@ export default function TipoHabitacionFormPage() {
   return (
     <form className={styles.page} onSubmit={handleSubmit} noValidate>
       <div className={styles.topBar}>
-        <h2>{isEditMode ? "Editar Tipo de Habitacion" : "Nuevo Tipo de Habitacion"}</h2>
+        <h2>{isEditMode ? "Editar Tipo de Habitación" : "Nuevo Tipo de Habitación"}</h2>
         <button
           type="button"
           className={styles.btnSecondary}

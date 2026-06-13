@@ -57,7 +57,7 @@ export default function CambiarPasswordPage() {
   return (
     <form className={styles.page} onSubmit={handleSubmit}>
       <div className={styles.topBar}>
-        <h2>Cambiar Password</h2>
+        <h2>Cambiar contraseña</h2>
         <button type="button" className={styles.btnSecondary} onClick={() => navigate("/admin")}>
           Volver
         </button>
@@ -110,7 +110,7 @@ export default function CambiarPasswordPage() {
           Cancelar
         </button>
         <button type="submit" className={styles.btnPrimary} disabled={loading}>
-          {loading ? "Guardando..." : "Actualizar password"}
+          {loading ? "Guardando..." : "Actualizar contraseña"}
         </button>
       </div>
     </form>

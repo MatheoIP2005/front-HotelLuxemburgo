@@ -1,7 +1,7 @@
-import axios from "axios";
 import { PUBLIC_API_BASE_URL } from "./apiConfig";
+import { createHttpClient } from "../shared/api/httpClient";
 
-const publicApi = axios.create({
+const publicApi = createHttpClient({
   baseURL: PUBLIC_API_BASE_URL,
 });
 

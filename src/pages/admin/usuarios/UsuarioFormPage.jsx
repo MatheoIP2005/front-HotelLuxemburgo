@@ -488,7 +488,7 @@ export default function UsuarioFormPage() {
 
           {!isEditMode && (
             <div className={getFieldClassName(styles.field, fieldErrors.password)}>
-              <label htmlFor="usuario-password">Password</label>
+              <label htmlFor="usuario-password">Contraseña</label>
               <input
                 id="usuario-password"
                 type="password"
@@ -525,7 +525,7 @@ export default function UsuarioFormPage() {
             <div className={styles.fieldFull}>
               <span className={styles.helpText}>
                 La contraseña no se actualiza desde este formulario. Usa la vista de cambio de
-                password para el usuario autenticado.
+                contraseña para el usuario autenticado.
               </span>
             </div>
           )}

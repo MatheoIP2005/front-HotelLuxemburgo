@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Hotel Luxemburgo",
+    "slug": "hotel-luxemburgo-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "extra": {
+      "apiBaseUrl": ""
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f766e"
+      }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La app accede a tu galería para subir imágenes de sucursales y habitaciones."
+        }
+      ]
+    ]
+  }
+}

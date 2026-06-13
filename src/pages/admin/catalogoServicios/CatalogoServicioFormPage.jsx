@@ -290,7 +290,7 @@ export default function CatalogoServicioFormPage() {
   return (
     <form className={styles.page} onSubmit={handleSubmit} noValidate>
       <div className={styles.topBar}>
-        <h2>{isEditMode ? "Editar Servicio/Catalogo" : "Nuevo Servicio/Catalogo"}</h2>
+        <h2>{isEditMode ? "Editar Servicio/Catálogo" : "Nuevo Servicio/Catálogo"}</h2>
         <button
           type="button"
           className={styles.btnSecondary}
@@ -429,7 +429,7 @@ export default function CatalogoServicioFormPage() {
               onChange={handleChange}
               onBlur={handleBlur}
               required
-              placeholder="Ej. Bienestar, Transporte, Habitacion"
+              placeholder="Ej. Bienestar, Transporte, Habitación"
               aria-invalid={showFieldError("categoria_catalogo")}
               aria-describedby={joinDescribedBy(
                 "categoria_catalogo-help",
