@@ -31,6 +31,7 @@ import AdminUsuarioRolesScreen from "./src/screens/admin/AdminUsuarioRolesScreen
 import AdminRolFormScreen from "./src/screens/admin/AdminRolFormScreen";
 import AdminRolPermisosScreen from "./src/screens/admin/AdminRolPermisosScreen";
 import AdminAuditoriaDetailScreen from "./src/screens/admin/AdminAuditoriaDetailScreen";
+import { colors } from "./src/styles/theme";
 
 const Stack = createNativeStackNavigator();
 const adminScreens = getAdminStackScreens();
@@ -44,10 +45,10 @@ export default function App() {
           <Stack.Navigator
             initialRouteName="Search"
             screenOptions={{
-              headerStyle: { backgroundColor: "#0f766e" },
-              headerTintColor: "#fff",
+              headerStyle: { backgroundColor: colors.nav },
+              headerTintColor: colors.onPrimary,
               headerTitleStyle: { fontWeight: "700" },
-              contentStyle: { backgroundColor: "#f8fafc" },
+              contentStyle: { backgroundColor: colors.background },
             }}
           >
             <Stack.Screen

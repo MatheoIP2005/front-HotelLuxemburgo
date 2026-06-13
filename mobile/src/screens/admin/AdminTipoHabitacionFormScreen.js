@@ -25,9 +25,24 @@ import {
   getTipoHabitacionImagenes,
 } from "../../services/tipoHabitacionImagenes.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { CATALOGO_TIPOS } from "../../../../src/utils/constraints";
+import { CATALOGO_TIPOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
 import { normalizeAdminList } from "../../utils/adminCollection";
+import {
+  buildTipoHabitacionPayload,
+  getTipoCapacidadTotal,
+  validateTipoHabitacionForm,
+} from "../../utils/tiposHabitacion";
+import {
+  sanitizeDecimalInput,
+  sanitizeOptionalDigits,
+} from "../../utils/numeric";
 import { colors } from "../../styles/theme";
+
+const TIPO_LIMITS = {
+  codigo: 30,
+  nombre: 60,
+  tipoCama: 60,
+};
 
 const EMPTY_FORM = {
   codigoTipoHabitacion: "",
@@ -49,19 +64,7 @@ const EMPTY_IMAGE = {
   esPrincipal: false,
 };
 
-const validate = (form) => {
-  const errors = {};
-  if (!form.codigoTipoHabitacion.trim()) errors.codigoTipoHabitacion = "Código obligatorio.";
-  if (!form.nombreTipoHabitacion.trim()) errors.nombreTipoHabitacion = "Nombre obligatorio.";
-  if (!form.capacidadAdultos || Number(form.capacidadAdultos) <= 0) {
-    errors.capacidadAdultos = "Debe ser mayor a 0.";
-  }
-  if (form.capacidadNinos === "" || Number(form.capacidadNinos) < 0) {
-    errors.capacidadNinos = "Debe ser 0 o mayor.";
-  }
-  if (!form.areaM2 || Number(form.areaM2) <= 0) errors.areaM2 = "Área obligatoria.";
-  return errors;
-};
+const validate = (form) => validateTipoHabitacionForm(form);
 
 export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
   const id = route.params?.id;
@@ -125,7 +128,17 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    const numericSanitizers = {
+      capacidadAdultos: sanitizeOptionalDigits,
+      capacidadNinos: sanitizeOptionalDigits,
+      areaM2: sanitizeDecimalInput,
+    };
+    const nextValue = numericSanitizers[key] ? numericSanitizers[key](value) : value;
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+  };
+
+  const capacidadTotal = getTipoCapacidadTotal(form);
 
   const onSubmit = async () => {
     const errors = validate(form);
@@ -135,12 +148,7 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
     setSaving(true);
     setError("");
     try {
-      const payload = {
-        ...form,
-        capacidadAdultos: Number(form.capacidadAdultos),
-        capacidadNinos: Number(form.capacidadNinos),
-        areaM2: Number(form.areaM2),
-      };
+      const payload = buildTipoHabitacionPayload(form, isEdit);
       if (isEdit) {
         await updateTipoHabitacion(id, payload);
         Alert.alert("Guardado", "Tipo actualizado.");
@@ -247,12 +255,18 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
-      <FormField label="Código" value={form.codigoTipoHabitacion} onChangeText={(v) => setField("codigoTipoHabitacion", v)} error={fieldErrors.codigoTipoHabitacion} />
-      <FormField label="Nombre" value={form.nombreTipoHabitacion} onChangeText={(v) => setField("nombreTipoHabitacion", v)} error={fieldErrors.nombreTipoHabitacion} />
+      <FormField label="Código" value={form.codigoTipoHabitacion} onChangeText={(v) => setField("codigoTipoHabitacion", v)} maxLength={TIPO_LIMITS.codigo} error={fieldErrors.codigoTipoHabitacion} />
+      <FormField label="Nombre" value={form.nombreTipoHabitacion} onChangeText={(v) => setField("nombreTipoHabitacion", v)} maxLength={TIPO_LIMITS.nombre} error={fieldErrors.nombreTipoHabitacion} />
       <FormField label="Descripción" value={form.descripcion} onChangeText={(v) => setField("descripcion", v)} multiline />
       <FormField label="Capacidad adultos" value={form.capacidadAdultos} onChangeText={(v) => setField("capacidadAdultos", v)} keyboardType="numeric" error={fieldErrors.capacidadAdultos} />
       <FormField label="Capacidad niños" value={form.capacidadNinos} onChangeText={(v) => setField("capacidadNinos", v)} keyboardType="numeric" error={fieldErrors.capacidadNinos} />
-      <FormField label="Tipo cama" value={form.tipoCama} onChangeText={(v) => setField("tipoCama", v)} />
+      <FormField
+        label="Capacidad total"
+        value={String(capacidadTotal)}
+        editable={false}
+        error={fieldErrors.capacidadTotal}
+      />
+      <FormField label="Tipo cama" value={form.tipoCama} onChangeText={(v) => setField("tipoCama", v)} maxLength={TIPO_LIMITS.tipoCama} error={fieldErrors.tipoCama} />
       <FormField label="Área m²" value={form.areaM2} onChangeText={(v) => setField("areaM2", v)} keyboardType="numeric" error={fieldErrors.areaM2} />
       <SwitchField label="Reserva pública" value={form.permiteReservaPublica} onValueChange={(v) => setField("permiteReservaPublica", v)} />
       {isEdit ? (
@@ -295,7 +309,7 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
               {uploadingImage ? "Subiendo imagen..." : "Seleccionar imagen"}
             </Text>
           </Pressable>
-          <FormField label="URL" value={imagenForm.urlImagen} onChangeText={(v) => setImagenForm((p) => ({ ...p, urlImagen: v }))} />
+          <FormField label="URL" value={imagenForm.urlImagen} onChangeText={(v) => setImagenForm((p) => ({ ...p, urlImagen: v }))} autoCapitalize="none" maxLength={MAX_LENGTHS.imagen.url} />
           <Text
             style={[styles.addLink, uploadingImage && styles.disabledLink]}
             onPress={uploadingImage ? undefined : onAddImagen}
@@ -351,7 +365,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginBottom: 8,
   },
-  selectImageText: { color: "#fff", fontWeight: "800" },
+  selectImageText: { color: colors.onPrimary, fontWeight: "800" },
   disabledBtn: { opacity: 0.6 },
   addLink: { color: colors.primary, fontWeight: "800" },
   disabledLink: { opacity: 0.6 },

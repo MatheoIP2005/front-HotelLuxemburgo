@@ -109,5 +109,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  addText: { color: "#fff", fontWeight: "800" },
+  addText: { color: colors.onPrimary, fontWeight: "800" },
 });

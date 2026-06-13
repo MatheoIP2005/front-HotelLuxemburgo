@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   addText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
   },
 });

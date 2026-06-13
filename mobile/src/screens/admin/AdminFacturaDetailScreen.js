@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import AdminDetailSection from "../../components/admin/AdminDetailSection";
@@ -26,6 +25,7 @@ import {
 import { getReserva } from "../../services/reservas.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
+import { validateMotivoFactura } from "../../utils/text";
 import { confirmAdminAction } from "../../utils/adminCollection";
 import {
   buildFacturaGeneracionBody,
@@ -59,6 +59,7 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [motivoAnular, setMotivoAnular] = useState("");
+  const [motivoError, setMotivoError] = useState("");
   const [showAnular, setShowAnular] = useState(false);
 
   const [reservaGuid, setReservaGuid] = useState(initialReservaId ?? "");
@@ -227,21 +228,18 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
   };
 
   const handleAnular = async () => {
-    const motivo = motivoAnular.trim();
-    if (!motivo) {
-      setError("Ingresa un motivo de anulación.");
-      return;
-    }
-    if (motivo.length > MAX_LENGTHS.factura.motivo) {
-      setError(`El motivo no puede exceder ${MAX_LENGTHS.factura.motivo} caracteres.`);
+    const motivoErr = validateMotivoFactura(motivoAnular);
+    if (motivoErr) {
+      setMotivoError(motivoErr);
       return;
     }
     if (!(await confirmAdminAction("Anular", "¿Anular esta factura?"))) return;
 
     setActionLoading(true);
     setError("");
+    setMotivoError("");
     try {
-      await anularFactura(id, motivo, factura?.rowVersion ?? null);
+      await anularFactura(id, motivoAnular.trim(), factura?.rowVersion ?? null);
       Alert.alert("Anulación", "Factura anulada.");
       setShowAnular(false);
       setMotivoAnular("");
@@ -387,7 +385,10 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
           </Pressable>
         ) : null}
         {canAnularFactura(factura) ? (
-          <Pressable style={styles.dangerBtn} onPress={() => setShowAnular((prev) => !prev)}>
+          <Pressable style={styles.dangerBtn} onPress={() => {
+            setShowAnular((prev) => !prev);
+            setMotivoError("");
+          }}>
             <Text style={styles.dangerBtnText}>Anular factura</Text>
           </Pressable>
         ) : null}
@@ -395,14 +396,17 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
 
       {showAnular ? (
         <View style={styles.anularBox}>
-          <Text style={styles.anularTitle}>Motivo de anulación</Text>
-          <TextInput
-            style={styles.input}
+          <FormField
+            label="Motivo de anulación"
             value={motivoAnular}
-            onChangeText={setMotivoAnular}
+            onChangeText={(value) => {
+              setMotivoAnular(value);
+              if (motivoError) setMotivoError("");
+            }}
             placeholder="Motivo (obligatorio)"
             maxLength={MAX_LENGTHS.factura.motivo}
             multiline
+            error={motivoError}
           />
           <Pressable
             style={[styles.dangerBtn, actionLoading && styles.disabled]}
@@ -429,7 +433,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.secondaryBg,
   },
   rowLabel: { color: colors.muted, flex: 1 },
   rowValue: { color: colors.text, fontWeight: "700", flex: 1, textAlign: "right" },
@@ -450,15 +454,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  primaryBtnText: { color: "#fff", fontWeight: "800" },
+  primaryBtnText: { color: colors.onPrimary, fontWeight: "800" },
   secondaryBtn: {
     minHeight: 44,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e2e8f0",
+    backgroundColor: colors.secondaryBg,
   },
-  secondaryBtnText: { color: "#334155", fontWeight: "800" },
+  secondaryBtnText: { color: colors.textSecondary, fontWeight: "800" },
   dangerBtn: {
     minHeight: 44,
     borderRadius: 8,
@@ -466,25 +470,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.danger,
   },
-  dangerBtnText: { color: "#fff", fontWeight: "800" },
+  dangerBtnText: { color: colors.onPrimary, fontWeight: "800" },
   disabled: { opacity: 0.6 },
   anularBox: {
     marginTop: 12,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#fff7ed",
+    backgroundColor: colors.warningBgAlt,
     borderWidth: 1,
-    borderColor: "#fdba74",
+    borderColor: colors.warningBorderAlt,
     gap: 10,
-  },
-  anularTitle: { fontWeight: "700", color: "#9a3412" },
-  input: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
   },
 });

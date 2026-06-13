@@ -6,6 +6,20 @@ import { colors, shadow } from "../styles/theme";
 export default function ConfirmationScreen({ navigation }) {
   const { bookingData, resetBooking } = useBooking();
   const reservation = bookingData.publicReservation;
+  const payment = bookingData.simulatedPayment;
+
+  const reservaInfo = {
+    propiedad: bookingData.propiedad?.nombre,
+    habitacion: bookingData.habitacion?.nombre,
+    fechaEntrada: bookingData.fechaEntrada,
+    fechaSalida: bookingData.fechaSalida,
+    total: bookingData.precioTotal,
+    reservaGuid: reservation?.reservaGuid ?? null,
+    codigoReserva: reservation?.codigoReserva ?? null,
+    authorizationCode: payment?.authorizationCode ?? null,
+    transactionCode: payment?.transactionCode ?? null,
+    tarjeta: payment?.maskedCard ?? null,
+  };
 
   const startOver = () => {
     resetBooking();
@@ -20,21 +34,34 @@ export default function ConfirmationScreen({ navigation }) {
         </View>
         <Text style={styles.title}>Reserva confirmada</Text>
         <Text style={styles.muted}>
-          Tu reserva fue enviada correctamente al backend de Hotel Luxemburgo.
+          Tu reserva ha sido registrada exitosamente. Recibirás un correo de confirmación.
         </Text>
 
         <View style={styles.infoBox}>
+          <Row label="Propiedad" value={reservaInfo.propiedad || "-"} />
+          <Row label="Habitación" value={reservaInfo.habitacion || "-"} />
           <Row
-            label="Codigo"
-            value={reservation?.codigoReserva || reservation?.reservaGuid || "Pendiente"}
+            label="Fechas"
+            value={`${reservaInfo.fechaEntrada || "-"} - ${reservaInfo.fechaSalida || "-"}`}
           />
-          <Row label="Propiedad" value={bookingData.propiedad?.nombre || "-"} />
-          <Row label="Cliente" value={bookingData.cliente?.nombres || "-"} />
-          <Row label="Total" value={formatMoney(bookingData.precioTotal)} />
+          <Row label="Total" value={formatMoney(reservaInfo.total)} />
+          {reservaInfo.codigoReserva ? (
+            <Row label="Código reserva" value={reservaInfo.codigoReserva} />
+          ) : null}
+          {reservaInfo.reservaGuid ? (
+            <Row label="Reserva GUID" value={reservaInfo.reservaGuid} />
+          ) : null}
+          {reservaInfo.authorizationCode ? (
+            <Row label="Autorización simulada" value={reservaInfo.authorizationCode} />
+          ) : null}
+          {reservaInfo.transactionCode ? (
+            <Row label="Transacción simulada" value={reservaInfo.transactionCode} />
+          ) : null}
+          {reservaInfo.tarjeta ? <Row label="Tarjeta" value={reservaInfo.tarjeta} /> : null}
         </View>
 
         <Pressable style={styles.primaryButton} onPress={startOver}>
-          <Text style={styles.primaryButtonText}>Nueva busqueda</Text>
+          <Text style={styles.primaryButtonText}>Nueva búsqueda</Text>
         </Pressable>
       </View>
     </View>
@@ -71,10 +98,10 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#dcfce7",
+    backgroundColor: colors.successBg,
   },
   iconText: {
-    color: "#166534",
+    color: colors.success,
     fontWeight: "900",
   },
   title: {
@@ -89,9 +116,10 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     alignSelf: "stretch",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
+    backgroundColor: colors.infoBoxBg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 10,
     padding: 14,
     gap: 10,
   },
@@ -115,7 +143,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },

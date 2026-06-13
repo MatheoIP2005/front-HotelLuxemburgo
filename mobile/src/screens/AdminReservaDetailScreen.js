@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import FormField from "../components/admin/FormField";
 import useRequireAuth from "../hooks/useRequireAuth";
 import { getClientes } from "../services/clientes.service";
 import {
@@ -18,8 +18,10 @@ import {
 } from "../services/reservas.service";
 import { getSucursales } from "../services/sucursales.service";
 import { extractApiErrorMessage } from "../../../src/shared/utils/api";
+import { MAX_LENGTHS } from "../../../src/utils/constraints";
 import { getClienteDisplayName } from "../utils/clientes";
 import { normalizeAdminList, pickGuid } from "../utils/adminCollection";
+import { validateMotivoCancelacion } from "../utils/text";
 import {
   canCancelReserva,
   canConfirmReserva,
@@ -47,6 +49,7 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [motivoError, setMotivoError] = useState("");
 
   const loadReserva = useCallback(async () => {
     if (!id) return;
@@ -114,21 +117,18 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
   };
 
   const handleCancelar = async () => {
-    const motivo = motivoCancelacion.trim();
-    if (!motivo) {
-      setError("Ingresa un motivo de cancelación.");
-      return;
-    }
-    if (motivo.length > 150) {
-      setError("El motivo no puede exceder 150 caracteres.");
+    const motivoErr = validateMotivoCancelacion(motivoCancelacion);
+    if (motivoErr) {
+      setMotivoError(motivoErr);
       return;
     }
 
     setActionLoading(true);
     setError("");
+    setMotivoError("");
 
     try {
-      await cancelarReserva(id, motivo);
+      await cancelarReserva(id, motivoCancelacion.trim());
       setMotivoCancelacion("");
       await loadReserva();
     } catch (err) {
@@ -232,12 +232,17 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
       {canCancelReserva(estado) ? (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Cancelar reserva</Text>
-          <TextInput
-            style={styles.input}
+          <FormField
+            label="Motivo de cancelación"
             value={motivoCancelacion}
-            onChangeText={setMotivoCancelacion}
-            placeholder="Motivo de cancelación (máx. 150)"
+            onChangeText={(value) => {
+              setMotivoCancelacion(value);
+              if (motivoError) setMotivoError("");
+            }}
+            placeholder="Motivo (obligatorio)"
+            maxLength={MAX_LENGTHS.reserva.motivoCancelacion}
             multiline
+            error={motivoError}
           />
           <Pressable
             style={[styles.dangerButton, actionLoading && styles.disabledButton]}
@@ -321,16 +326,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
-  input: {
-    minHeight: 80,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
-  },
   primaryButton: {
     minHeight: 48,
     borderRadius: 8,
@@ -349,7 +344,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
   },
 });

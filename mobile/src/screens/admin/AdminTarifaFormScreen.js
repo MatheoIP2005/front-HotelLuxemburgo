@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { Alert } from "react-native";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
+import DateField from "../../components/admin/DateField";
 import FormField from "../../components/admin/FormField";
+import ScrollSelectField from "../../components/admin/ScrollSelectField";
 import SelectField from "../../components/admin/SelectField";
 import SwitchField from "../../components/admin/SwitchField";
 import useRequireAuth from "../../hooks/useRequireAuth";
@@ -11,9 +13,17 @@ import { createTarifa, getTarifa, updateTarifa } from "../../services/tarifas.se
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { TARIFA_CANALES, TARIFA_ESTADOS } from "../../../../src/utils/constraints";
 import { normalizeAdminList } from "../../utils/adminCollection";
-import { colors } from "../../styles/theme";
+import { getTodayIsoDate } from "../../utils/booking";
+import {
+  sanitizeDecimalInput,
+  sanitizeOptionalDigits,
+} from "../../utils/numeric";
+import { buildTarifaPayload, validateTarifaForm } from "../../utils/tarifas";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const TARIFA_LIMITS = {
+  codigo: 30,
+  nombre: 150,
+};
 
 const EMPTY_FORM = {
   codigoTarifa: "",
@@ -33,28 +43,6 @@ const EMPTY_FORM = {
   rowVersion: null,
 };
 
-const validate = (form, isEdit) => {
-  const errors = {};
-  if (!form.codigoTarifa.trim()) errors.codigoTarifa = "Código obligatorio.";
-  if (!form.nombreTarifa.trim()) errors.nombreTarifa = "Nombre obligatorio.";
-  if (!form.idSucursal || Number(form.idSucursal) <= 0) errors.idSucursal = "Sucursal obligatoria.";
-  if (!form.idTipoHabitacion || Number(form.idTipoHabitacion) <= 0) {
-    errors.idTipoHabitacion = "Tipo obligatorio.";
-  }
-  if (!form.fechaInicio) errors.fechaInicio = "Fecha inicio obligatoria.";
-  if (!form.fechaFin) errors.fechaFin = "Fecha fin obligatoria.";
-  if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
-    errors.fechaFin = "Fin debe ser >= inicio.";
-  }
-  if (!form.precioPorNoche || Number(form.precioPorNoche) <= 0) {
-    errors.precioPorNoche = "Precio > 0.";
-  }
-  if (isEdit && !TARIFA_ESTADOS.includes(form.estadoTarifa)) {
-    errors.estadoTarifa = "Estado inválido.";
-  }
-  return errors;
-};
-
 export default function AdminTarifaFormScreen({ navigation, route }) {
   const id = route.params?.id;
   const isEdit = Boolean(id);
@@ -66,6 +54,8 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const minLocalDate = useMemo(() => getTodayIsoDate(), []);
+  const minFechaFin = form.fechaInicio || minLocalDate;
 
   const sucursalOptions = useMemo(
     () =>
@@ -135,32 +125,43 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    if (key === "fechaInicio") {
+      setForm((prev) => {
+        if (!value) {
+          return { ...prev, fechaInicio: "", fechaFin: "" };
+        }
+
+        return {
+          ...prev,
+          fechaInicio: value,
+          fechaFin: prev.fechaFin && prev.fechaFin < value ? "" : prev.fechaFin,
+        };
+      });
+      return;
+    }
+
+    const numericSanitizers = {
+      precioPorNoche: sanitizeDecimalInput,
+      porcentajeIva: sanitizeDecimalInput,
+      minNoches: sanitizeOptionalDigits,
+      maxNoches: sanitizeOptionalDigits,
+      prioridad: sanitizeOptionalDigits,
+    };
+
+    const nextValue = numericSanitizers[key] ? numericSanitizers[key](value) : value;
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+  };
 
   const onSubmit = async () => {
-    const errors = validate(form, isEdit);
+    const errors = validateTarifaForm(form, isEdit, minLocalDate);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
 
     setSaving(true);
     setError("");
     try {
-      const payload = {
-        codigoTarifa: form.codigoTarifa,
-        nombreTarifa: form.nombreTarifa,
-        idSucursal: Number(form.idSucursal),
-        idTipoHabitacion: Number(form.idTipoHabitacion),
-        canalTarifa: form.canalTarifa,
-        fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
-        precioPorNoche: Number(form.precioPorNoche),
-        porcentajeIva: Number(form.porcentajeIva),
-        minNoches: Number(form.minNoches),
-        maxNoches: form.maxNoches === "" ? null : Number(form.maxNoches),
-        prioridad: Number(form.prioridad),
-        permitePortalPublico: form.permitePortalPublico,
-        ...(isEdit ? { estadoTarifa: form.estadoTarifa, rowVersion: form.rowVersion } : {}),
-      };
+      const payload = buildTarifaPayload(form, isEdit);
       if (isEdit) await updateTarifa(id, payload);
       else await createTarifa(payload);
       Alert.alert("Guardado", isEdit ? "Tarifa actualizada." : "Tarifa creada.");
@@ -185,44 +186,54 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
   return (
     <AdminFormScreen
       title={isEdit ? "Editar tarifa" : "Nueva tarifa"}
-      subtitle={`Vigencia desde ${today()}`}
+      subtitle={`Vigencia desde ${minLocalDate}`}
       submitLabel={isEdit ? "Actualizar" : "Crear"}
       onSubmit={onSubmit}
       onCancel={() => navigation.goBack()}
       saving={saving}
       error={error}
     >
-      <FormField label="Código" value={form.codigoTarifa} onChangeText={(v) => setField("codigoTarifa", v)} error={fieldErrors.codigoTarifa} />
-      <FormField label="Nombre" value={form.nombreTarifa} onChangeText={(v) => setField("nombreTarifa", v)} error={fieldErrors.nombreTarifa} />
-      <SelectField
+      <FormField label="Código" value={form.codigoTarifa} onChangeText={(v) => setField("codigoTarifa", v)} maxLength={TARIFA_LIMITS.codigo} error={fieldErrors.codigoTarifa} />
+      <FormField label="Nombre" value={form.nombreTarifa} onChangeText={(v) => setField("nombreTarifa", v)} maxLength={TARIFA_LIMITS.nombre} error={fieldErrors.nombreTarifa} />
+      <ScrollSelectField
         label="Sucursal"
         value={form.idSucursal}
         options={[{ value: "", label: "Seleccionar" }, ...sucursalOptions]}
         onChange={(v) => setField("idSucursal", v)}
+        error={fieldErrors.idSucursal}
       />
-      {fieldErrors.idSucursal ? <Text style={styles.error}>{fieldErrors.idSucursal}</Text> : null}
-      <SelectField
+      <ScrollSelectField
         label="Tipo habitación"
         value={form.idTipoHabitacion}
         options={[{ value: "", label: "Seleccionar" }, ...tipoOptions]}
         onChange={(v) => setField("idTipoHabitacion", v)}
+        error={fieldErrors.idTipoHabitacion}
       />
-      {fieldErrors.idTipoHabitacion ? (
-        <Text style={styles.error}>{fieldErrors.idTipoHabitacion}</Text>
-      ) : null}
       <SelectField
         label="Canal"
         value={form.canalTarifa}
         options={TARIFA_CANALES.map((c) => ({ value: c, label: c }))}
         onChange={(v) => setField("canalTarifa", v)}
       />
-      <FormField label="Fecha inicio (YYYY-MM-DD)" value={form.fechaInicio} onChangeText={(v) => setField("fechaInicio", v)} error={fieldErrors.fechaInicio} />
-      <FormField label="Fecha fin (YYYY-MM-DD)" value={form.fechaFin} onChangeText={(v) => setField("fechaFin", v)} error={fieldErrors.fechaFin} />
+      <DateField
+        label="Fecha inicio"
+        value={form.fechaInicio}
+        onChange={(value) => setField("fechaInicio", value)}
+        minDate={minLocalDate}
+        error={fieldErrors.fechaInicio}
+      />
+      <DateField
+        label="Fecha fin"
+        value={form.fechaFin}
+        onChange={(value) => setField("fechaFin", value)}
+        minDate={minFechaFin}
+        error={fieldErrors.fechaFin}
+      />
       <FormField label="Precio/noche" value={form.precioPorNoche} onChangeText={(v) => setField("precioPorNoche", v)} keyboardType="decimal-pad" error={fieldErrors.precioPorNoche} />
-      <FormField label="% IVA" value={form.porcentajeIva} onChangeText={(v) => setField("porcentajeIva", v)} keyboardType="decimal-pad" />
-      <FormField label="Mín noches" value={form.minNoches} onChangeText={(v) => setField("minNoches", v)} keyboardType="numeric" />
-      <FormField label="Máx noches" value={form.maxNoches} onChangeText={(v) => setField("maxNoches", v)} keyboardType="numeric" />
-      <FormField label="Prioridad" value={form.prioridad} onChangeText={(v) => setField("prioridad", v)} keyboardType="numeric" />
+      <FormField label="% IVA" value={form.porcentajeIva} onChangeText={(v) => setField("porcentajeIva", v)} keyboardType="decimal-pad" error={fieldErrors.porcentajeIva} />
+      <FormField label="Mín noches" value={form.minNoches} onChangeText={(v) => setField("minNoches", v)} keyboardType="numeric" error={fieldErrors.minNoches} />
+      <FormField label="Máx noches" value={form.maxNoches} onChangeText={(v) => setField("maxNoches", v)} keyboardType="numeric" error={fieldErrors.maxNoches} />
+      <FormField label="Prioridad" value={form.prioridad} onChangeText={(v) => setField("prioridad", v)} keyboardType="numeric" error={fieldErrors.prioridad} />
       <SwitchField label="Portal público" value={form.permitePortalPublico} onValueChange={(v) => setField("permitePortalPublico", v)} />
       {isEdit ? (
         <SelectField
@@ -235,8 +246,3 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
     </AdminFormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  muted: { color: colors.muted },
-  error: { color: colors.danger, fontWeight: "700", fontSize: 12 },
-});

@@ -10,9 +10,18 @@ import {
   View,
 } from "react-native";
 import { useBooking } from "../context/BookingContext";
+import {
+  IDENTIFICATION_TYPE_OPTIONS,
+  MAX_LENGTHS,
+  normalizeTipoIdentificacion,
+} from "../utils/constraints";
+import {
+  mapClienteErrorsToPublic,
+  resolvePublicClienteFieldUpdate,
+  toClienteFormFromPublic,
+  validateClienteForm,
+} from "../utils/clientes";
 import { colors, shadow } from "../styles/theme";
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function BookingFormScreen({ navigation }) {
   const { bookingData, setCliente } = useBooking();
@@ -25,6 +34,7 @@ export default function BookingFormScreen({ navigation }) {
     telefono: "",
     direccion: "",
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,59 +43,36 @@ export default function BookingFormScreen({ navigation }) {
     }
   }, [bookingData.habitacion, navigation]);
 
-  const updateField = (name, value) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const validate = () => {
-    const required = [
-      "numero_identificacion",
-      "nombres",
-      "apellidos",
-      "correo",
-      "telefono",
-      "direccion",
-    ];
-
-    if (required.some((key) => !String(form[key] || "").trim())) {
-      return "Completa todos los campos para continuar.";
-    }
-
-    if (form.tipo_identificacion === "CED" && !/^\d{10}$/.test(form.numero_identificacion)) {
-      return "La cedula debe tener 10 digitos.";
-    }
-
-    if (form.tipo_identificacion === "RUC" && !/^\d{13}$/.test(form.numero_identificacion)) {
-      return "El RUC debe tener 13 digitos.";
-    }
-
-    if (!emailRegex.test(form.correo.trim())) {
-      return "Ingresa un correo valido.";
-    }
-
-    if (!/^\d{10}$/.test(form.telefono.trim())) {
-      return "El telefono debe tener 10 digitos.";
-    }
-
-    return "";
+  const handleChange = (name, value) => {
+    setForm((prev) => resolvePublicClienteFieldUpdate(prev, name, value));
+    setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    setError("");
   };
 
   const continueToPayment = () => {
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    const errors = mapClienteErrorsToPublic(validateClienteForm(toClienteFormFromPublic(form)));
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      setError("Revisa los campos marcados.");
       return;
     }
+
+    const tipoIdentificacion = normalizeTipoIdentificacion(form.tipo_identificacion);
+    const payload = toClienteFormFromPublic(form);
 
     setError("");
     setCliente({
       ...form,
-      numero_identificacion: form.numero_identificacion.trim(),
-      nombres: form.nombres.trim(),
-      apellidos: form.apellidos.trim(),
-      correo: form.correo.trim(),
-      telefono: form.telefono.trim(),
-      direccion: form.direccion.trim(),
+      tipo_identificacion: tipoIdentificacion,
+      numero_identificacion:
+        tipoIdentificacion === "PAS"
+          ? payload.numeroIdentificacion.toUpperCase()
+          : payload.numeroIdentificacion.trim(),
+      nombres: payload.nombres.trim(),
+      apellidos: payload.apellidos.trim(),
+      correo: payload.correo.trim(),
+      telefono: payload.telefono.trim(),
+      direccion: payload.direccion.trim(),
     });
     navigation.navigate("Payment");
   };
@@ -97,73 +84,99 @@ export default function BookingFormScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>Resumen</Text>
-          <Text style={styles.muted}>{bookingData.propiedad?.nombre || "-"}</Text>
-          <Text style={styles.muted}>{bookingData.habitacion?.nombre || "-"}</Text>
-          <Text style={styles.muted}>
-            {bookingData.fechaEntrada || "-"} / {bookingData.fechaSalida || "-"}
-          </Text>
+          <Text style={styles.summaryTitle}>Resumen de tu reserva</Text>
+          <Row label="Propiedad" value={bookingData.propiedad?.nombre || "-"} />
+          <Row label="Habitación" value={bookingData.habitacion?.nombre || "-"} />
+          <Row
+            label="Fechas"
+            value={`${bookingData.fechaEntrada || "-"} - ${bookingData.fechaSalida || "-"}`}
+          />
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Precio total</Text>
+            <Text style={styles.totalValue}>{bookingData.precioTotal || 0}</Text>
+          </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.title}>Datos personales</Text>
+          <Text style={styles.title}>Tus datos personales</Text>
 
-          <Text style={styles.label}>Tipo de identificacion</Text>
+          <Text style={styles.label}>Tipo de identificación</Text>
           <View style={styles.segment}>
-            {["CED", "RUC", "PAS"].map((option) => (
+            {IDENTIFICATION_TYPE_OPTIONS.map((option) => (
               <Pressable
-                key={option}
+                key={option.value}
                 style={[
                   styles.segmentItem,
-                  form.tipo_identificacion === option && styles.segmentItemActive,
+                  form.tipo_identificacion === option.value && styles.segmentItemActive,
                 ]}
-                onPress={() => updateField("tipo_identificacion", option)}
+                onPress={() => handleChange("tipo_identificacion", option.value)}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    form.tipo_identificacion === option && styles.segmentTextActive,
+                    form.tipo_identificacion === option.value && styles.segmentTextActive,
                   ]}
                 >
-                  {option}
+                  {option.label}
                 </Text>
               </Pressable>
             ))}
           </View>
 
           <Field
-            label="Numero de identificacion"
+            label="Número de identificación"
             value={form.numero_identificacion}
-            onChangeText={(value) => updateField("numero_identificacion", value)}
-            keyboardType={form.tipo_identificacion === "PAS" ? "default" : "number-pad"}
+            onChangeText={(value) => handleChange("numero_identificacion", value)}
+            keyboardType={
+              normalizeTipoIdentificacion(form.tipo_identificacion) === "PAS"
+                ? "default"
+                : "number-pad"
+            }
+            autoCapitalize={
+              normalizeTipoIdentificacion(form.tipo_identificacion) === "PAS"
+                ? "characters"
+                : "none"
+            }
+            maxLength={MAX_LENGTHS.cliente.numeroIdentificacion}
+            error={fieldErrors.numero_identificacion}
           />
           <Field
             label="Nombres"
             value={form.nombres}
-            onChangeText={(value) => updateField("nombres", value)}
+            onChangeText={(value) => handleChange("nombres", value)}
+            maxLength={MAX_LENGTHS.cliente.nombres}
+            error={fieldErrors.nombres}
           />
           <Field
             label="Apellidos"
             value={form.apellidos}
-            onChangeText={(value) => updateField("apellidos", value)}
+            onChangeText={(value) => handleChange("apellidos", value)}
+            maxLength={MAX_LENGTHS.cliente.apellidos}
+            error={fieldErrors.apellidos}
           />
           <Field
             label="Correo"
             value={form.correo}
-            onChangeText={(value) => updateField("correo", value)}
+            onChangeText={(value) => handleChange("correo", value)}
             keyboardType="email-address"
             autoCapitalize="none"
+            maxLength={MAX_LENGTHS.cliente.correo}
+            error={fieldErrors.correo}
           />
           <Field
-            label="Telefono"
+            label="Teléfono"
             value={form.telefono}
-            onChangeText={(value) => updateField("telefono", value)}
+            onChangeText={(value) => handleChange("telefono", value)}
             keyboardType="number-pad"
+            maxLength={MAX_LENGTHS.cliente.telefono}
+            error={fieldErrors.telefono}
           />
           <Field
-            label="Direccion"
+            label="Dirección"
             value={form.direccion}
-            onChangeText={(value) => updateField("direccion", value)}
+            onChangeText={(value) => handleChange("direccion", value)}
+            maxLength={MAX_LENGTHS.cliente.direccion}
+            error={fieldErrors.direccion}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -177,11 +190,26 @@ export default function BookingFormScreen({ navigation }) {
   );
 }
 
-function Field({ label, ...props }) {
+function Row({ label, value }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.muted}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function Field({ label, error, ...props }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput style={styles.input} placeholder={label} {...props} />
+      <TextInput
+        style={[styles.input, error && styles.inputError]}
+        placeholder={label}
+        placeholderTextColor={colors.mutedLight}
+        {...props}
+      />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }
@@ -200,12 +228,40 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 16,
-    gap: 6,
+    gap: 8,
     ...shadow,
   },
   summaryTitle: {
     color: colors.text,
     fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 14,
+  },
+  rowValue: {
+    flex: 1,
+    color: colors.text,
+    textAlign: "right",
+    fontWeight: "700",
+  },
+  totalRow: {
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  totalLabel: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  totalValue: {
+    color: colors.text,
     fontWeight: "800",
   },
   muted: {
@@ -236,7 +292,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+  },
+  inputError: {
+    borderColor: colors.danger,
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "600",
   },
   segment: {
     flexDirection: "row",
@@ -250,7 +314,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   segmentItemActive: {
     backgroundColor: colors.primary,
@@ -261,7 +325,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   segmentTextActive: {
-    color: "#fff",
+    color: colors.onPrimary,
   },
   error: {
     color: colors.danger,
@@ -275,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },

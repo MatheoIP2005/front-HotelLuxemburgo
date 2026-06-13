@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import AdminListCard from "../../components/admin/AdminListCard";
 import AdminListScreen from "../../components/admin/AdminListScreen";
+import FormField from "../../components/admin/FormField";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import {
   deleteCliente,
@@ -11,6 +12,8 @@ import {
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { getClienteDisplayName } from "../../utils/clientes";
 import { confirmAdminAction, normalizeAdminList, pickGuid } from "../../utils/adminCollection";
+import { MAX_LENGTHS } from "../../../../src/utils/constraints";
+import { validateMotivoInhabilitacion } from "../../utils/text";
 import { colors } from "../../styles/theme";
 
 export default function AdminClientesScreen({ navigation }) {
@@ -21,6 +24,7 @@ export default function AdminClientesScreen({ navigation }) {
   const [error, setError] = useState("");
   const [inhabilitarId, setInhabilitarId] = useState(null);
   const [motivoInhabilitar, setMotivoInhabilitar] = useState("");
+  const [motivoError, setMotivoError] = useState("");
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -53,17 +57,14 @@ export default function AdminClientesScreen({ navigation }) {
   };
 
   const onConfirmInhabilitar = async () => {
-    const motivo = motivoInhabilitar.trim();
-    if (!motivo) {
-      setError("Ingresa un motivo de inhabilitación.");
+    const motivoErr = validateMotivoInhabilitacion(motivoInhabilitar);
+    if (motivoErr) {
+      setMotivoError(motivoErr);
       return;
     }
-    if (motivo.length > 150) {
-      setError("El motivo no puede exceder 150 caracteres.");
-      return;
-    }
+    setMotivoError("");
     try {
-      await inhabilitarCliente(inhabilitarId, motivo);
+      await inhabilitarCliente(inhabilitarId, motivoInhabilitar.trim());
       setInhabilitarId(null);
       setMotivoInhabilitar("");
       load(true);
@@ -95,13 +96,17 @@ export default function AdminClientesScreen({ navigation }) {
           </Pressable>
           {inhabilitarId ? (
             <View style={styles.inhabilitarBox}>
-              <Text style={styles.inhabilitarTitle}>Motivo de inhabilitación</Text>
-              <TextInput
-                style={styles.input}
+              <FormField
+                label="Motivo de inhabilitación"
                 value={motivoInhabilitar}
-                onChangeText={setMotivoInhabilitar}
-                placeholder="Motivo (máx. 150)"
+                onChangeText={(value) => {
+                  setMotivoInhabilitar(value);
+                  if (motivoError) setMotivoError("");
+                }}
+                placeholder="Motivo (obligatorio)"
+                maxLength={MAX_LENGTHS.rol.motivo}
                 multiline
+                error={motivoError}
               />
               <View style={styles.inhabilitarActions}>
                 <Pressable style={styles.cancelBtn} onPress={() => setInhabilitarId(null)}>
@@ -127,6 +132,7 @@ export default function AdminClientesScreen({ navigation }) {
             onPress: () => {
               setInhabilitarId(id);
               setMotivoInhabilitar("");
+              setMotivoError("");
             },
           });
         }
@@ -154,23 +160,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  addText: { color: "#fff", fontWeight: "800" },
+  addText: { color: colors.onPrimary, fontWeight: "800" },
   inhabilitarBox: {
     marginBottom: 12,
     padding: 12,
     borderRadius: 8,
     backgroundColor: colors.surface,
     gap: 8,
-  },
-  inhabilitarTitle: { fontWeight: "800", color: colors.text },
-  input: {
-    minHeight: 70,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
   },
   inhabilitarActions: { flexDirection: "row", gap: 8 },
   cancelBtn: {

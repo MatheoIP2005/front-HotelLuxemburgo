@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
   },
 });

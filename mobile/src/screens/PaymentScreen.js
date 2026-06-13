@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,58 +11,164 @@ import {
 import { createPublicReserva } from "../services/publicServices";
 import { useBooking } from "../context/BookingContext";
 import { formatMoney } from "../utils/booking";
+import {
+  CARD_NUMBER_REGEX,
+  CVV_REGEX,
+  buildMaskedCard,
+  formatCardNumber,
+  formatExpiryDate,
+  isExpiryValid,
+  randomToken,
+  sanitizeDigits,
+} from "../utils/payment";
 import { colors, shadow } from "../styles/theme";
 
+const PROCESSING_LABELS = {
+  validating: "Validando datos simulados...",
+  processing: "Procesando pago simulado...",
+  success: "Pago simulado aprobado.",
+  error: "Error en la simulación.",
+};
+
 export default function PaymentScreen({ navigation }) {
-  const { bookingData, setPublicReservation } = useBooking();
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
+  const { bookingData, setPublicReservation, setSimulatedPayment } = useBooking();
+  const [form, setForm] = useState({
+    numero_tarjeta: "",
+    nombre_titular: "",
+    fecha_vencimiento: "",
+    cvv: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [processingState, setProcessingState] = useState("idle");
+  const [simulationInfo, setSimulationInfo] = useState(null);
 
-  const buildReservaPayload = () => ({
-    cliente: bookingData.cliente,
-    sucursalGuid: bookingData.propiedad?.sucursalGuid,
-    fechaInicio: bookingData.fechaEntrada,
-    fechaFin: bookingData.fechaSalida,
-    origenCanalReserva: "APP_MOVIL",
-    observaciones: "Reserva creada desde app movil React Native.",
-    esWalkin: false,
-    habitaciones: [
-      {
-        tipoHabitacionGuid: bookingData.habitacion?.tipoHabitacionGuid,
-        numHabitaciones: Number(bookingData.numHabitaciones || 1),
-        numAdultos: Number(bookingData.numAdultos || 1),
-        numNinos: Number(bookingData.numNinos || 0),
-      },
-    ],
-  });
+  useEffect(() => {
+    if (!bookingData.cliente) {
+      navigation.replace("BookingForm");
+    }
+  }, [bookingData.cliente, navigation]);
+
+  const handleChange = (name, value) => {
+    if (name === "numero_tarjeta") {
+      setForm((prev) => ({ ...prev, [name]: formatCardNumber(value) }));
+      return;
+    }
+
+    if (name === "cvv") {
+      setForm((prev) => ({ ...prev, [name]: sanitizeDigits(value).slice(0, 4) }));
+      return;
+    }
+
+    if (name === "fecha_vencimiento") {
+      setForm((prev) => ({ ...prev, [name]: formatExpiryDate(value) }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handlePay = async () => {
-    if (!bookingData.cliente || !bookingData.propiedad || !bookingData.habitacion) {
-      setError("La reserva esta incompleta. Vuelve a buscar el alojamiento.");
+    const numeroTarjeta = sanitizeDigits(form.numero_tarjeta);
+    const cvv = sanitizeDigits(form.cvv);
+    const nombreTitular = form.nombre_titular.trim();
+    const fechaVencimiento = form.fecha_vencimiento.trim();
+    const tipoHabitacionGuid = bookingData.habitacion?.tipoHabitacionGuid;
+
+    if (!nombreTitular) {
+      setError("El nombre del titular es obligatorio.");
       return;
     }
 
-    if (!bookingData.habitacion.tipoHabitacionGuid) {
-      setError("No se pudo identificar el tipo de habitacion para reservar.");
+    if (!CARD_NUMBER_REGEX.test(numeroTarjeta)) {
+      setError("La tarjeta simulada debe tener exactamente 16 dígitos.");
       return;
     }
 
-    if (!cardName.trim() || cardNumber.replace(/\s/g, "").length < 12) {
-      setError("Ingresa datos de pago validos para simular la reserva.");
+    if (!CVV_REGEX.test(cvv)) {
+      setError("El CVV simulado debe tener 3 o 4 dígitos.");
       return;
     }
 
-    setLoading(true);
+    if (!isExpiryValid(fechaVencimiento)) {
+      setError("La fecha de vencimiento debe tener formato MM/AA y no estar vencida.");
+      return;
+    }
+
+    if (!bookingData.propiedad?.sucursalGuid || !bookingData.fechaEntrada || !bookingData.fechaSalida) {
+      setError("Faltan datos de la reserva para continuar.");
+      return;
+    }
+
+    if (!tipoHabitacionGuid) {
+      setError("No se pudo resolver el tipo de habitación para crear la reserva.");
+      return;
+    }
+
     setError("");
+    setLoading(true);
+    setProcessingState("validating");
+    setSimulationInfo(null);
 
     try {
-      const reservation = await createPublicReserva(buildReservaPayload());
-      setPublicReservation(reservation);
+      const authorizationCode = randomToken("AUTH");
+      const transactionCode = randomToken("TXN");
+      const maskedCard = buildMaskedCard(numeroTarjeta);
+
+      setSimulationInfo({
+        authorizationCode,
+        transactionCode,
+        maskedCard,
+      });
+
+      setProcessingState("processing");
+      await new Promise((resolve) => setTimeout(resolve, 900));
+
+      const reserva = await createPublicReserva({
+        cliente: {
+          tipoIdentificacion: bookingData.cliente?.tipo_identificacion,
+          numeroIdentificacion: bookingData.cliente?.numero_identificacion,
+          nombres: bookingData.cliente?.nombres,
+          apellidos: bookingData.cliente?.apellidos || "",
+          correo: bookingData.cliente?.correo,
+          telefono: bookingData.cliente?.telefono,
+          direccion: bookingData.cliente?.direccion,
+        },
+        sucursalGuid: bookingData.propiedad?.sucursalGuid,
+        fechaInicio: bookingData.fechaEntrada,
+        fechaFin: bookingData.fechaSalida,
+        origenCanalReserva: "PORTAL",
+        esWalkin: false,
+        observaciones: null,
+        habitaciones: [
+          {
+            tipoHabitacionGuid: bookingData.habitacion?.tipoHabitacionGuid ?? null,
+            numHabitaciones: bookingData.numHabitaciones || 1,
+            numAdultos: bookingData.numAdultos || 1,
+            numNinos: bookingData.numNinos || 0,
+          },
+        ],
+      });
+
+      setPublicReservation(reserva);
+      setSimulatedPayment({
+        authorizationCode,
+        transactionCode,
+        maskedCard,
+        nombreTitular,
+        fechaVencimiento,
+        metodo: "TARJETA SIMULADA",
+      });
+      setProcessingState("success");
       navigation.replace("Confirmation");
     } catch (err) {
-      setError(err?.response?.data?.message || "No se pudo crear la reserva.");
+      setProcessingState("error");
+      setError(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "No se pudo completar el pago"
+      );
     } finally {
       setLoading(false);
     }
@@ -70,42 +176,81 @@ export default function PaymentScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>
+          Pasarela de pago simulada. No ingreses datos reales.
+        </Text>
+      </View>
+
       <View style={styles.summary}>
         <Text style={styles.title}>Resumen de pago</Text>
         <Row label="Propiedad" value={bookingData.propiedad?.nombre || "-"} />
         <Row label="Habitación" value={bookingData.habitacion?.nombre || "-"} />
         <Row
           label="Fechas"
-          value={`${bookingData.fechaEntrada || "-"} / ${bookingData.fechaSalida || "-"}`}
+          value={`${bookingData.fechaEntrada || "-"} - ${bookingData.fechaSalida || "-"}`}
         />
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total estimado</Text>
+          <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.total}>{formatMoney(bookingData.precioTotal)}</Text>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.title}>Pago simulado</Text>
-        <Text style={styles.muted}>
-          Este flujo no procesa tarjetas reales. Solo confirma la reserva publica.
-        </Text>
+        <Text style={styles.title}>Datos de pago</Text>
 
-        <Text style={styles.label}>Nombre en la tarjeta</Text>
+        <Text style={styles.label}>Número de tarjeta</Text>
         <TextInput
           style={styles.input}
-          value={cardName}
-          onChangeText={setCardName}
-          placeholder="Nombre completo"
-        />
-
-        <Text style={styles.label}>Numero de tarjeta</Text>
-        <TextInput
-          style={styles.input}
-          value={cardNumber}
-          onChangeText={setCardNumber}
-          placeholder="4111 1111 1111 1111"
+          value={form.numero_tarjeta}
+          onChangeText={(value) => handleChange("numero_tarjeta", value)}
+          placeholder="1234 5678 9012 3456"
           keyboardType="number-pad"
         />
+
+        <Text style={styles.label}>Nombre del titular</Text>
+        <TextInput
+          style={styles.input}
+          value={form.nombre_titular}
+          onChangeText={(value) => handleChange("nombre_titular", value)}
+        />
+
+        <View style={styles.rowFields}>
+          <View style={styles.rowField}>
+            <Text style={styles.label}>Fecha de vencimiento</Text>
+            <TextInput
+              style={styles.input}
+              value={form.fecha_vencimiento}
+              onChangeText={(value) => handleChange("fecha_vencimiento", value)}
+              placeholder="MM/AA"
+              keyboardType="number-pad"
+            />
+          </View>
+          <View style={styles.rowField}>
+            <Text style={styles.label}>CVV</Text>
+            <TextInput
+              style={styles.input}
+              value={form.cvv}
+              onChangeText={(value) => handleChange("cvv", value)}
+              placeholder="123"
+              keyboardType="number-pad"
+              secureTextEntry
+            />
+          </View>
+        </View>
+
+        {processingState !== "idle" ? (
+          <View style={styles.infoBox}>
+            <Row label="Estado" value={PROCESSING_LABELS[processingState] || "-"} />
+            {simulationInfo ? (
+              <>
+                <Row label="Autorización" value={simulationInfo.authorizationCode} />
+                <Row label="Transacción" value={simulationInfo.transactionCode} />
+                <Row label="Tarjeta" value={simulationInfo.maskedCard} />
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -115,9 +260,9 @@ export default function PaymentScreen({ navigation }) {
           onPress={handlePay}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.primaryButtonText}>Confirmar reserva</Text>
+            <Text style={styles.primaryButtonText}>Confirmar y pagar</Text>
           )}
         </Pressable>
       </View>
@@ -140,6 +285,18 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 14,
     backgroundColor: colors.background,
+  },
+  badge: {
+    backgroundColor: colors.infoBoxBg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+  },
+  badgeText: {
+    color: colors.text,
+    fontWeight: "700",
+    textAlign: "center",
   },
   summary: {
     backgroundColor: colors.surface,
@@ -201,7 +358,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
+  },
+  rowFields: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  rowField: {
+    flex: 1,
+    gap: 6,
+  },
+  infoBox: {
+    backgroundColor: colors.infoBoxBg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
   },
   error: {
     color: colors.danger,
@@ -218,7 +391,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },

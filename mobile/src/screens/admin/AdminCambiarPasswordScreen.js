@@ -84,6 +84,8 @@ export default function AdminCambiarPasswordScreen({ navigation }) {
         onChangeText={(value) => setField("passwordActual", value)}
         secureTextEntry
         autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
         maxLength={200}
         error={fieldErrors.passwordActual}
       />
@@ -93,6 +95,8 @@ export default function AdminCambiarPasswordScreen({ navigation }) {
         onChangeText={(value) => setField("passwordNuevo", value)}
         secureTextEntry
         autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
         maxLength={200}
         error={fieldErrors.passwordNuevo}
       />
@@ -102,6 +106,8 @@ export default function AdminCambiarPasswordScreen({ navigation }) {
         onChangeText={(value) => setField("confirmarPassword", value)}
         secureTextEntry
         autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
         maxLength={200}
         error={fieldErrors.confirmarPassword}
       />

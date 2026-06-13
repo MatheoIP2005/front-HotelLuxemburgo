@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  addText: { color: "#fff", fontWeight: "800" },
+  addText: { color: colors.onPrimary, fontWeight: "800" },
   filters: { gap: 8, marginBottom: 12 },
   filterField: { marginBottom: 4 },
   searchBtn: {
@@ -180,18 +180,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#334155",
+    backgroundColor: colors.primary,
   },
-  searchText: { color: "#fff", fontWeight: "700" },
+  searchText: { color: colors.onPrimary, fontWeight: "700" },
   cardWrap: { marginBottom: 4 },
   estadoBox: {
     marginTop: -4,
     marginBottom: 12,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: colors.secondaryBg,
     gap: 8,
   },
   updateBtn: {
@@ -201,5 +201,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primaryDark,
   },
-  updateText: { color: "#fff", fontWeight: "700" },
+  updateText: { color: colors.onPrimary, fontWeight: "700" },
 });

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { Alert } from "react-native";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
+import ScrollSelectField from "../../components/admin/ScrollSelectField";
 import SelectField from "../../components/admin/SelectField";
 import SwitchField from "../../components/admin/SwitchField";
 import useRequireAuth from "../../hooks/useRequireAuth";
@@ -12,9 +13,11 @@ import {
 } from "../../services/catalogoServicios.service";
 import { getSucursales } from "../../services/sucursales.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { CATALOGO_ESTADOS, CATALOGO_TIPOS } from "../../../../src/utils/constraints";
+import { CATALOGO_ESTADOS, CATALOGO_TIPOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
 import { normalizeAdminList } from "../../utils/adminCollection";
-import { colors } from "../../styles/theme";
+import { sanitizeDecimalInput } from "../../utils/numeric";
+import { sanitizeTimeInput } from "../../utils/text";
+import { validateCatalogoForm } from "../../utils/catalogo";
 
 const EMPTY_FORM = {
   idSucursal: "",
@@ -31,22 +34,6 @@ const EMPTY_FORM = {
   iconoUrl: "",
   estadoCatalogo: "ACT",
   rowVersion: null,
-};
-
-const validate = (form) => {
-  const errors = {};
-  if (!form.idSucursal || Number(form.idSucursal) <= 0) {
-    errors.idSucursal = "Sucursal obligatoria.";
-  }
-  if (!form.codigoCatalogo.trim()) errors.codigoCatalogo = "Código obligatorio.";
-  if (!form.nombreCatalogo.trim()) errors.nombreCatalogo = "Nombre obligatorio.";
-  if (!form.categoriaCatalogo.trim()) errors.categoriaCatalogo = "Categoría obligatoria.";
-  const precio = Number(form.precioBase);
-  if (form.tipoCatalogo === "AME" && precio !== 0) {
-    errors.precioBase = "Amenidades deben tener precio 0.";
-  }
-  if (Number.isNaN(precio) || precio < 0) errors.precioBase = "Precio inválido.";
-  return errors;
 };
 
 export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
@@ -107,10 +94,30 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    setForm((prev) => {
+      if (key === "horaInicio" || key === "horaFin") {
+        return { ...prev, [key]: sanitizeTimeInput(value) };
+      }
+      if (key === "precioBase") {
+        return { ...prev, [key]: sanitizeDecimalInput(value) };
+      }
+      if (key === "tipoCatalogo") {
+        return {
+          ...prev,
+          tipoCatalogo: value,
+          precioBase: value === "AME" ? "0" : prev.precioBase,
+        };
+      }
+      if (key === "disponible24h" && value) {
+        return { ...prev, disponible24h: true, horaInicio: "", horaFin: "" };
+      }
+      return { ...prev, [key]: value };
+    });
+  };
 
   const onSubmit = async () => {
-    const errors = validate(form);
+    const errors = validateCatalogoForm(form, isEdit);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -164,46 +171,43 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
-      <SelectField
+      <ScrollSelectField
         label="Sucursal"
         value={form.idSucursal}
         options={[{ value: "", label: "Seleccionar" }, ...sucursalOptions]}
         onChange={(v) => setField("idSucursal", v)}
+        error={fieldErrors.idSucursal}
       />
-      {fieldErrors.idSucursal ? <Text style={styles.error}>{fieldErrors.idSucursal}</Text> : null}
-      <FormField label="Código" value={form.codigoCatalogo} onChangeText={(v) => setField("codigoCatalogo", v)} error={fieldErrors.codigoCatalogo} />
-      <FormField label="Nombre" value={form.nombreCatalogo} onChangeText={(v) => setField("nombreCatalogo", v)} error={fieldErrors.nombreCatalogo} />
+      <FormField label="Código" value={form.codigoCatalogo} onChangeText={(v) => setField("codigoCatalogo", v)} maxLength={MAX_LENGTHS.catalogo.codigo} error={fieldErrors.codigoCatalogo} />
+      <FormField label="Nombre" value={form.nombreCatalogo} onChangeText={(v) => setField("nombreCatalogo", v)} maxLength={MAX_LENGTHS.catalogo.nombre} error={fieldErrors.nombreCatalogo} />
       <SelectField
         label="Tipo"
         value={form.tipoCatalogo}
         options={CATALOGO_TIPOS.map((t) => ({ value: t, label: t }))}
         onChange={(v) => setField("tipoCatalogo", v)}
+        error={fieldErrors.tipoCatalogo}
       />
-      <FormField label="Categoría" value={form.categoriaCatalogo} onChangeText={(v) => setField("categoriaCatalogo", v)} error={fieldErrors.categoriaCatalogo} />
-      <FormField label="Descripción" value={form.descripcionCatalogo} onChangeText={(v) => setField("descripcionCatalogo", v)} multiline />
+      <FormField label="Categoría" value={form.categoriaCatalogo} onChangeText={(v) => setField("categoriaCatalogo", v)} maxLength={MAX_LENGTHS.catalogo.categoria} error={fieldErrors.categoriaCatalogo} />
+      <FormField label="Descripción" value={form.descripcionCatalogo} onChangeText={(v) => setField("descripcionCatalogo", v)} multiline maxLength={MAX_LENGTHS.catalogo.descripcion} error={fieldErrors.descripcionCatalogo} />
       <FormField label="Precio base" value={form.precioBase} onChangeText={(v) => setField("precioBase", v)} keyboardType="decimal-pad" error={fieldErrors.precioBase} />
       <SwitchField label="Aplica IVA" value={form.aplicaIva} onValueChange={(v) => setField("aplicaIva", v)} />
       <SwitchField label="Disponible 24h" value={form.disponible24h} onValueChange={(v) => setField("disponible24h", v)} />
       {!form.disponible24h ? (
         <>
-          <FormField label="Hora inicio" value={form.horaInicio} onChangeText={(v) => setField("horaInicio", v)} placeholder="HH:MM" />
-          <FormField label="Hora fin" value={form.horaFin} onChangeText={(v) => setField("horaFin", v)} placeholder="HH:MM" />
+          <FormField label="Hora inicio" value={form.horaInicio} onChangeText={(v) => setField("horaInicio", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaInicio} />
+          <FormField label="Hora fin" value={form.horaFin} onChangeText={(v) => setField("horaFin", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaFin} />
         </>
       ) : null}
-      <FormField label="URL ícono" value={form.iconoUrl} onChangeText={(v) => setField("iconoUrl", v)} autoCapitalize="none" />
+      <FormField label="URL ícono" value={form.iconoUrl} onChangeText={(v) => setField("iconoUrl", v)} autoCapitalize="none" maxLength={MAX_LENGTHS.catalogo.iconoUrl} error={fieldErrors.iconoUrl} />
       {isEdit ? (
         <SelectField
           label="Estado"
           value={form.estadoCatalogo}
           options={CATALOGO_ESTADOS.map((e) => ({ value: e, label: e }))}
           onChange={(v) => setField("estadoCatalogo", v)}
+          error={fieldErrors.estadoCatalogo}
         />
       ) : null}
     </AdminFormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  muted: { color: colors.muted },
-  error: { color: colors.danger, fontWeight: "700", fontSize: 12 },
-});

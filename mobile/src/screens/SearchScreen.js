@@ -11,28 +11,42 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { searchAccommodations } from "../services/publicServices";
+import MinimalDateInput from "../components/public/MinimalDateInput";
+import { getAccommodation, searchAccommodations } from "../services/publicServices";
 import { useBooking } from "../context/BookingContext";
 import {
   addDaysToIsoDate,
   formatLocation,
   formatMoney,
+  getFirstStringImage,
+  getOptionalChildrenCount,
   getTodayIsoDate,
   resolvePropertyImageUrl,
+  trimText,
 } from "../utils/booking";
 import { API_CONFIG_WARNING, isApiConfigured } from "../config/env";
+import {
+  parseNonNegativeInteger,
+  parsePositiveInteger,
+  sanitizeOptionalDigits,
+} from "../utils/numeric";
 import { colors, shadow } from "../styles/theme";
 
+const resetSearchResults = (setItems, setTotal, setSearched) => {
+  setItems([]);
+  setTotal(0);
+  setSearched(true);
+};
+
 export default function SearchScreen({ navigation }) {
-  const today = useMemo(() => getTodayIsoDate(), []);
-  const tomorrow = useMemo(() => addDaysToIsoDate(today, 1), [today]);
+  const todayIso = useMemo(() => getTodayIsoDate(), []);
   const { setFechas, setHuespedes, setPropiedad } = useBooking();
   const [form, setForm] = useState({
     destino: "",
-    fechaInicio: today,
-    fechaFin: tomorrow,
+    fechaInicio: "",
+    fechaFin: "",
     numAdultos: "1",
-    numNinos: "0",
+    numNinos: "",
     numHabitaciones: "1",
   });
   const [items, setItems] = useState([]);
@@ -41,24 +55,87 @@ export default function SearchScreen({ navigation }) {
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
 
+  const salidaMinDate = form.fechaInicio
+    ? addDaysToIsoDate(form.fechaInicio, 1)
+    : todayIso;
+
   const updateField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const updateNumericField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: sanitizeOptionalDigits(value) }));
+  };
+
+  const handleFechaInicioChange = (nextValue) => {
+    setForm((prev) => {
+      if (!nextValue) {
+        return { ...prev, fechaInicio: "", fechaFin: "" };
+      }
+
+      return {
+        ...prev,
+        fechaInicio: nextValue,
+        fechaFin: prev.fechaFin && prev.fechaFin <= nextValue ? "" : prev.fechaFin,
+      };
+    });
+  };
+
+  const handleFechaFinChange = (nextValue) => {
+    setForm((prev) => ({ ...prev, fechaFin: nextValue }));
   };
 
   const handleSearch = async () => {
     if (!isApiConfigured) {
       setError(API_CONFIG_WARNING);
+      resetSearchResults(setItems, setTotal, setSearched);
       return;
     }
 
     if (!form.fechaInicio || !form.fechaFin) {
-      setError("Ingresa fecha de entrada y salida.");
+      setError("Selecciona fecha de entrada y salida.");
+      resetSearchResults(setItems, setTotal, setSearched);
+      return;
+    }
+
+    if (form.fechaInicio < todayIso) {
+      setError("La fecha de entrada no puede ser menor a la fecha actual.");
+      resetSearchResults(setItems, setTotal, setSearched);
       return;
     }
 
     if (form.fechaFin <= form.fechaInicio) {
-      setError("La fecha de salida debe ser posterior a la entrada.");
+      setError("La fecha de salida debe ser posterior a la fecha de entrada.");
+      resetSearchResults(setItems, setTotal, setSearched);
       return;
+    }
+
+    const adultos = parsePositiveInteger(form.numAdultos);
+    if (adultos === null || Number.isNaN(adultos)) {
+      setError("Ingresa un número válido de adultos (mínimo 1).");
+      resetSearchResults(setItems, setTotal, setSearched);
+      return;
+    }
+
+    const habitaciones = parsePositiveInteger(form.numHabitaciones);
+    if (habitaciones === null || Number.isNaN(habitaciones)) {
+      setError("Ingresa un número válido de habitaciones (mínimo 1).");
+      resetSearchResults(setItems, setTotal, setSearched);
+      return;
+    }
+
+    if (form.numNinos !== "") {
+      const ninos = parseNonNegativeInteger(form.numNinos);
+      if (ninos === null || Number.isNaN(ninos)) {
+        setError("Ingresa un número válido de niños.");
+        resetSearchResults(setItems, setTotal, setSearched);
+        return;
+      }
+      if (ninos < 0) {
+        setError("El número de niños no puede ser negativo.");
+        resetSearchResults(setItems, setTotal, setSearched);
+        return;
+      }
     }
 
     setLoading(true);
@@ -68,14 +145,45 @@ export default function SearchScreen({ navigation }) {
     try {
       const response = await searchAccommodations({
         ...form,
-        numAdultos: Number(form.numAdultos || 1),
-        numNinos: Number(form.numNinos || 0),
-        numHabitaciones: Number(form.numHabitaciones || 1),
+        numAdultos: adultos,
+        numHabitaciones: habitaciones,
+        numNinos: form.numNinos === "" ? undefined : form.numNinos,
       });
-      const nextItems = Array.isArray(response?.items) ? response.items : [];
-      setItems(nextItems);
-      setTotal(Number(response?.totalResultados ?? response?.total ?? nextItems.length));
+      const items = Array.isArray(response?.items) ? response.items : [];
+      const enrichedResults = await Promise.all(
+        items.map(async (item) => {
+          const accommodationId = item.sucursalGuid ?? item.id ?? item.slug;
+          if (!accommodationId) return item;
+
+          try {
+            const detail = await getAccommodation(accommodationId, {
+              fechaInicio: form.fechaInicio,
+              fechaFin: form.fechaFin,
+            });
+
+            return {
+              ...item,
+              imagenSucursalResuelta:
+                trimText(detail?.imagenPrincipalUrl) ||
+                getFirstStringImage(detail?.imagenes) ||
+                "",
+            };
+          } catch {
+            return item;
+          }
+        })
+      );
+      setItems(enrichedResults);
+      setTotal(Number(response?.totalResultados ?? response?.total ?? items.length));
     } catch (err) {
+      console.error("Search accommodations failed", {
+        baseUrl: err?.config?.baseURL,
+        url: err?.config?.url,
+        params: err?.config?.params,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message: err?.message,
+      });
       setItems([]);
       setTotal(0);
       setError(err?.response?.data?.message || "No se pudo buscar alojamientos.");
@@ -91,9 +199,9 @@ export default function SearchScreen({ navigation }) {
     setPropiedad(item);
     setFechas(form.fechaInicio, form.fechaFin);
     setHuespedes(
-      Number(form.numAdultos || 1),
-      Number(form.numHabitaciones || 1),
-      Number(form.numNinos || 0)
+      parsePositiveInteger(form.numAdultos) ?? 1,
+      parsePositiveInteger(form.numHabitaciones) ?? 1,
+      getOptionalChildrenCount(form.numNinos)
     );
 
     navigation.navigate("AccommodationDetail", {
@@ -113,7 +221,7 @@ export default function SearchScreen({ navigation }) {
         keyExtractor={(item, index) => String(item.sucursalGuid ?? item.id ?? index)}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>Reserva movil</Text>
+            <Text style={styles.eyebrow}>Reserva móvil</Text>
             <Text style={styles.title}>Encuentra tu alojamiento ideal</Text>
             <Text style={styles.subtitle}>
               Busca disponibilidad en las sucursales de Hotel Luxemburgo.
@@ -144,20 +252,18 @@ export default function SearchScreen({ navigation }) {
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <Text style={styles.label}>Entrada</Text>
-                  <TextInput
+                  <MinimalDateInput
                     value={form.fechaInicio}
-                    onChangeText={(value) => updateField("fechaInicio", value)}
-                    placeholder="YYYY-MM-DD"
-                    style={styles.input}
+                    onChange={handleFechaInicioChange}
+                    minDate={todayIso}
                   />
                 </View>
                 <View style={styles.rowItem}>
                   <Text style={styles.label}>Salida</Text>
-                  <TextInput
+                  <MinimalDateInput
                     value={form.fechaFin}
-                    onChangeText={(value) => updateField("fechaFin", value)}
-                    placeholder="YYYY-MM-DD"
-                    style={styles.input}
+                    onChange={handleFechaFinChange}
+                    minDate={salidaMinDate}
                   />
                 </View>
               </View>
@@ -167,26 +273,20 @@ export default function SearchScreen({ navigation }) {
                   <Text style={styles.label}>Adultos</Text>
                   <TextInput
                     value={form.numAdultos}
-                    onChangeText={(value) => updateField("numAdultos", value)}
+                    onChangeText={(value) => updateNumericField("numAdultos", value)}
                     keyboardType="number-pad"
+                    inputMode="numeric"
                     style={styles.input}
                   />
                 </View>
                 <View style={styles.rowItem}>
-                  <Text style={styles.label}>Ninos</Text>
+                  <Text style={styles.label}>Niños</Text>
                   <TextInput
                     value={form.numNinos}
-                    onChangeText={(value) => updateField("numNinos", value)}
+                    onChangeText={(value) => updateNumericField("numNinos", value)}
                     keyboardType="number-pad"
-                    style={styles.input}
-                  />
-                </View>
-                <View style={styles.rowItem}>
-                  <Text style={styles.label}>Hab.</Text>
-                  <TextInput
-                    value={form.numHabitaciones}
-                    onChangeText={(value) => updateField("numHabitaciones", value)}
-                    keyboardType="number-pad"
+                    inputMode="numeric"
+                    placeholder="0"
                     style={styles.input}
                   />
                 </View>
@@ -221,7 +321,7 @@ export default function SearchScreen({ navigation }) {
               )}
               <View style={styles.resultBody}>
                 <Text style={styles.resultName}>{item.nombre}</Text>
-                <Text style={styles.muted}>{formatLocation(item) || "Ubicacion no disponible"}</Text>
+                <Text style={styles.muted}>{formatLocation(item) || "Ubicación no disponible"}</Text>
                 <View style={styles.resultFooter}>
                   <Text style={styles.badge}>{item.promedioValoracion ?? "-"}</Text>
                   <Text style={styles.price}>
@@ -234,7 +334,7 @@ export default function SearchScreen({ navigation }) {
         }}
         ListEmptyComponent={
           searched && !loading ? (
-            <Text style={styles.empty}>No hay resultados para esta busqueda.</Text>
+            <Text style={styles.empty}>No hay resultados para esta búsqueda.</Text>
           ) : null
         }
         contentContainerStyle={styles.listContent}
@@ -279,14 +379,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   configWarning: {
-    backgroundColor: "#fef3c7",
+    backgroundColor: colors.noticeBg,
     borderWidth: 1,
-    borderColor: "#f59e0b",
+    borderColor: colors.noticeBorder,
     borderRadius: 8,
     padding: 12,
   },
   configWarningText: {
-    color: "#92400e",
+    color: colors.warningText,
     fontWeight: "700",
     lineHeight: 20,
   },
@@ -307,7 +407,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   row: {
     flexDirection: "row",
@@ -329,7 +429,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },
@@ -361,7 +461,7 @@ const styles = StyleSheet.create({
     height: 170,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e2e8f0",
+    backgroundColor: colors.badgeBg,
   },
   imageFallbackText: {
     color: colors.muted,
@@ -387,14 +487,14 @@ const styles = StyleSheet.create({
   badge: {
     overflow: "hidden",
     borderRadius: 6,
-    backgroundColor: "#dcfce7",
-    color: "#166534",
+    backgroundColor: colors.nav,
+    color: colors.onPrimary,
     paddingHorizontal: 10,
     paddingVertical: 5,
     fontWeight: "800",
   },
   price: {
-    color: colors.primaryDark,
+    color: colors.text,
     fontWeight: "800",
   },
   empty: {

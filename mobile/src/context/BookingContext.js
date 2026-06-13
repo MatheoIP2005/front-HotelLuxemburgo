@@ -11,6 +11,7 @@ const initialBookingData = {
   precioTotal: 0,
   cliente: null,
   publicReservation: null,
+  simulatedPayment: null,
 };
 
 const BookingContext = createContext(undefined);
@@ -40,6 +41,8 @@ export const BookingProvider = ({ children }) => {
         setBookingData((prev) => ({ ...prev, cliente })),
       setPublicReservation: (publicReservation) =>
         setBookingData((prev) => ({ ...prev, publicReservation })),
+      setSimulatedPayment: (simulatedPayment) =>
+        setBookingData((prev) => ({ ...prev, simulatedPayment })),
       resetBooking: () => setBookingData(initialBookingData),
     }),
     [bookingData]

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   cancelText: {
     color: colors.text,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },

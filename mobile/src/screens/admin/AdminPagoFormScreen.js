@@ -10,6 +10,8 @@ import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { PAGO_METODOS } from "../../../../src/utils/constraints";
 import { normalizeAdminList } from "../../utils/adminCollection";
 import { getFacturaId } from "../../utils/facturas";
+import { validatePagoForm } from "../../utils/pagos";
+import { sanitizeDecimalInput } from "../../utils/numeric";
 import { colors } from "../../styles/theme";
 
 const EMPTY_FORM = {
@@ -107,34 +109,7 @@ export default function AdminPagoFormScreen({ navigation, route }) {
     hasAppliedPreselectionRef.current = true;
   }, [applyFacturaSelection, payableFacturas, preselectedFacturaGuid]);
 
-  const validate = () => {
-    const errors = {};
-    const monto = Number(form.monto);
-
-    if (!form.factura_guid) {
-      errors.factura_guid = "Seleccione una factura válida.";
-    } else if (!selectedFactura) {
-      errors.factura_guid = "La factura seleccionada no está disponible para pago.";
-    } else if (selectedFactura.estado !== "EMI") {
-      errors.factura_guid = "Solo se pueden registrar pagos sobre facturas emitidas (EMI).";
-    } else if (Number(selectedFactura.saldoPendiente ?? 0) <= 0) {
-      errors.factura_guid = "La factura seleccionada no tiene saldo pendiente.";
-    }
-
-    if (!form.monto) {
-      errors.monto = "El monto es obligatorio.";
-    } else if (Number.isNaN(monto) || monto <= 0) {
-      errors.monto = "El monto debe ser mayor a cero.";
-    } else if (selectedFactura && monto > Number(selectedFactura.saldoPendiente ?? 0)) {
-      errors.monto = "El monto no puede exceder el saldo pendiente de la factura.";
-    }
-
-    if (!PAGO_METODOS.includes(form.metodo_pago)) {
-      errors.metodo_pago = "Seleccione un método válido.";
-    }
-
-    return errors;
-  };
+  const validate = () => validatePagoForm(form, selectedFactura);
 
   const onSubmit = async () => {
     const errors = validate();
@@ -197,7 +172,9 @@ export default function AdminPagoFormScreen({ navigation, route }) {
       <FormField
         label="Monto"
         value={form.monto}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, monto: value }))}
+        onChangeText={(value) =>
+          setForm((prev) => ({ ...prev, monto: sanitizeDecimalInput(value) }))
+        }
         keyboardType="decimal-pad"
         error={fieldErrors.monto}
       />

@@ -20,13 +20,14 @@ import {
 } from "../../services/sucursalImagenes.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import {
-  EMAIL_REGEX,
   MAX_LENGTHS,
   SUCURSAL_CATEGORIA_VIAJE_OPTIONS,
   SUCURSAL_TIPO_ALOJAMIENTO_OPTIONS,
-  TIME_24H_REGEX,
 } from "../../../../src/utils/constraints";
 import { colors } from "../../styles/theme";
+import { sanitizeOptionalDigits } from "../../utils/numeric";
+import { sanitizePhoneDigits, sanitizeTimeInput } from "../../utils/text";
+import { validateSucursalForm } from "../../utils/sucursales";
 
 const EMPTY_FORM = {
   codigoSucursal: "",
@@ -58,37 +59,6 @@ const EMPTY_IMAGE = {
   descripcionImagen: "",
   ordenVisualizacion: "1",
   esPrincipal: false,
-};
-
-const trim = (v) => String(v ?? "").trim();
-
-const validate = (form) => {
-  const errors = {};
-  if (!trim(form.codigoSucursal)) errors.codigoSucursal = "El código es obligatorio.";
-  else if (trim(form.codigoSucursal).length > MAX_LENGTHS.sucursal.codigo) {
-    errors.codigoSucursal = "Máximo 10 caracteres.";
-  }
-  if (!trim(form.nombreSucursal)) errors.nombreSucursal = "El nombre es obligatorio.";
-  if (!SUCURSAL_TIPO_ALOJAMIENTO_OPTIONS.includes(form.tipoAlojamiento)) {
-    errors.tipoAlojamiento = "Tipo inválido.";
-  }
-  if (form.estrellas && (Number(form.estrellas) < 1 || Number(form.estrellas) > 5)) {
-    errors.estrellas = "Entre 1 y 5.";
-  }
-  if (!trim(form.pais)) errors.pais = "El país es obligatorio.";
-  if (!trim(form.ciudad)) errors.ciudad = "La ciudad es obligatoria.";
-  if (!trim(form.direccion)) errors.direccion = "La dirección es obligatoria.";
-  if (!trim(form.telefono)) errors.telefono = "El teléfono es obligatorio.";
-  if (!trim(form.correo) || !EMAIL_REGEX.test(trim(form.correo))) {
-    errors.correo = "Correo inválido.";
-  }
-  if (form.horaCheckin && !TIME_24H_REGEX.test(form.horaCheckin)) {
-    errors.horaCheckin = "Formato HH:MM.";
-  }
-  if (form.horaCheckout && !TIME_24H_REGEX.test(form.horaCheckout)) {
-    errors.horaCheckout = "Formato HH:MM.";
-  }
-  return errors;
 };
 
 export default function AdminSucursalFormScreen({ navigation, route }) {
@@ -160,10 +130,22 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    setForm((prev) => {
+      let nextValue = value;
+      if (key === "telefono") {
+        nextValue = sanitizePhoneDigits(value, MAX_LENGTHS.sucursal.telefono);
+      } else if (key === "horaCheckin" || key === "horaCheckout") {
+        nextValue = sanitizeTimeInput(value);
+      } else if (key === "estrellas" || key === "edadMinimaHuesped") {
+        nextValue = sanitizeOptionalDigits(value);
+      }
+      return { ...prev, [key]: nextValue };
+    });
+  };
 
   const onSubmit = async () => {
-    const errors = validate(form);
+    const errors = validateSucursalForm(form);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -281,12 +263,14 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         label="Código"
         value={form.codigoSucursal}
         onChangeText={(v) => setField("codigoSucursal", v)}
+        maxLength={MAX_LENGTHS.sucursal.codigo}
         error={fieldErrors.codigoSucursal}
       />
       <FormField
         label="Nombre"
         value={form.nombreSucursal}
         onChangeText={(v) => setField("nombreSucursal", v)}
+        maxLength={MAX_LENGTHS.sucursal.nombre}
         error={fieldErrors.nombreSucursal}
       />
       <SelectField
@@ -294,6 +278,7 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         value={form.tipoAlojamiento}
         options={tipoOptions}
         onChange={(v) => setField("tipoAlojamiento", v)}
+        error={fieldErrors.tipoAlojamiento}
       />
       <FormField
         label="Estrellas (1-5)"
@@ -307,34 +292,39 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         value={form.categoriaViaje}
         options={categoriaOptions}
         onChange={(v) => setField("categoriaViaje", v)}
+        error={fieldErrors.categoriaViaje}
       />
       <FormField
         label="Descripción corta"
         value={form.descripcionCorta}
         onChangeText={(v) => setField("descripcionCorta", v)}
         multiline
+        maxLength={MAX_LENGTHS.sucursal.descripcionCorta}
+        error={fieldErrors.descripcionCorta}
       />
       <FormField
         label="Descripción"
         value={form.descripcionSucursal}
         onChangeText={(v) => setField("descripcionSucursal", v)}
         multiline
+        maxLength={MAX_LENGTHS.sucursal.descripcion}
+        error={fieldErrors.descripcionSucursal}
       />
-      <FormField label="País" value={form.pais} onChangeText={(v) => setField("pais", v)} error={fieldErrors.pais} />
-      <FormField label="Provincia" value={form.provincia} onChangeText={(v) => setField("provincia", v)} />
-      <FormField label="Ciudad" value={form.ciudad} onChangeText={(v) => setField("ciudad", v)} error={fieldErrors.ciudad} />
-      <FormField label="Dirección" value={form.direccion} onChangeText={(v) => setField("direccion", v)} error={fieldErrors.direccion} />
-      <FormField label="Ubicación" value={form.ubicacion} onChangeText={(v) => setField("ubicacion", v)} />
-      <FormField label="Teléfono" value={form.telefono} onChangeText={(v) => setField("telefono", v)} keyboardType="phone-pad" error={fieldErrors.telefono} />
-      <FormField label="Correo" value={form.correo} onChangeText={(v) => setField("correo", v)} keyboardType="email-address" autoCapitalize="none" error={fieldErrors.correo} />
-      <FormField label="Hora check-in" value={form.horaCheckin} onChangeText={(v) => setField("horaCheckin", v)} error={fieldErrors.horaCheckin} />
-      <FormField label="Hora check-out" value={form.horaCheckout} onChangeText={(v) => setField("horaCheckout", v)} error={fieldErrors.horaCheckout} />
+      <FormField label="País" value={form.pais} onChangeText={(v) => setField("pais", v)} maxLength={MAX_LENGTHS.sucursal.pais} error={fieldErrors.pais} />
+      <FormField label="Provincia" value={form.provincia} onChangeText={(v) => setField("provincia", v)} maxLength={MAX_LENGTHS.sucursal.provincia} error={fieldErrors.provincia} />
+      <FormField label="Ciudad" value={form.ciudad} onChangeText={(v) => setField("ciudad", v)} maxLength={MAX_LENGTHS.sucursal.ciudad} error={fieldErrors.ciudad} />
+      <FormField label="Dirección" value={form.direccion} onChangeText={(v) => setField("direccion", v)} maxLength={MAX_LENGTHS.sucursal.direccion} error={fieldErrors.direccion} />
+      <FormField label="Ubicación" value={form.ubicacion} onChangeText={(v) => setField("ubicacion", v)} maxLength={MAX_LENGTHS.sucursal.ubicacion} error={fieldErrors.ubicacion} />
+      <FormField label="Teléfono" value={form.telefono} onChangeText={(v) => setField("telefono", v)} keyboardType="phone-pad" inputMode="numeric" maxLength={MAX_LENGTHS.sucursal.telefono} error={fieldErrors.telefono} />
+      <FormField label="Correo" value={form.correo} onChangeText={(v) => setField("correo", v)} keyboardType="email-address" autoCapitalize="none" maxLength={MAX_LENGTHS.sucursal.correo} error={fieldErrors.correo} />
+      <FormField label="Hora check-in" value={form.horaCheckin} onChangeText={(v) => setField("horaCheckin", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaCheckin} />
+      <FormField label="Hora check-out" value={form.horaCheckout} onChangeText={(v) => setField("horaCheckout", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaCheckout} />
       <SwitchField label="Check-in anticipado" value={form.checkinAnticipado} onValueChange={(v) => setField("checkinAnticipado", v)} />
       <SwitchField label="Checkout tardío" value={form.checkoutTardio} onValueChange={(v) => setField("checkoutTardio", v)} />
       <SwitchField label="Acepta niños" value={form.aceptaNinos} onValueChange={(v) => setField("aceptaNinos", v)} />
       <SwitchField label="Permite mascotas" value={form.permiteMascotas} onValueChange={(v) => setField("permiteMascotas", v)} />
       <SwitchField label="Se permite fumar" value={form.sePermiteFumar} onValueChange={(v) => setField("sePermiteFumar", v)} />
-      <FormField label="Edad mínima huésped" value={form.edadMinimaHuesped} onChangeText={(v) => setField("edadMinimaHuesped", v)} keyboardType="numeric" />
+      <FormField label="Edad mínima huésped" value={form.edadMinimaHuesped} onChangeText={(v) => setField("edadMinimaHuesped", v)} keyboardType="numeric" inputMode="numeric" error={fieldErrors.edadMinimaHuesped} />
 
       <AdminDetailSection title="Imágenes">
         {imagenes.map((img) => (
@@ -411,7 +401,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginBottom: 8,
   },
-  selectImageText: { color: "#fff", fontWeight: "800" },
+  selectImageText: { color: colors.onPrimary, fontWeight: "800" },
   disabledBtn: { opacity: 0.6 },
   addImageLink: { color: colors.primary, fontWeight: "800", marginTop: 8 },
   disabledLink: { opacity: 0.6 },

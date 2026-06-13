@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 8,
   },
-  primaryBtnText: { color: "#fff", fontWeight: "800" },
+  primaryBtnText: { color: colors.onPrimary, fontWeight: "800" },
   disabled: { opacity: 0.6 },
   roleCard: {
     flexDirection: "row",
@@ -197,5 +197,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.warning,
   },
-  removeText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  removeText: { color: colors.onPrimary, fontWeight: "700", fontSize: 12 },
 });

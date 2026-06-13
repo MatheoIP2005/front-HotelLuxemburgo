@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { Alert } from "react-native";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
+import ScrollSelectField from "../../components/admin/ScrollSelectField";
 import SelectField from "../../components/admin/SelectField";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import {
@@ -12,9 +13,16 @@ import {
 import { getSucursales } from "../../services/sucursales.service";
 import { getTiposHabitacion } from "../../services/tiposHabitacion.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { HABITACION_ESTADOS } from "../../../../src/utils/constraints";
+import { HABITACION_ESTADOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
 import { normalizeAdminList, pickGuid } from "../../utils/adminCollection";
-import { colors } from "../../styles/theme";
+import {
+  buildHabitacionPayload,
+  validateHabitacionForm,
+} from "../../utils/habitaciones";
+import {
+  sanitizeDecimalInput,
+  sanitizeOptionalDigits,
+} from "../../utils/numeric";
 
 const EMPTY_FORM = {
   sucursalGuid: "",
@@ -24,23 +32,6 @@ const EMPTY_FORM = {
   precioBase: "",
   descripcionHabitacion: "",
   estadoHabitacion: "DIS",
-};
-
-const isGuid = (value) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    String(value || "").trim()
-  );
-
-const validate = (form, isEdit) => {
-  const errors = {};
-  if (!isGuid(form.sucursalGuid)) errors.sucursalGuid = "Selecciona sucursal.";
-  if (!isGuid(form.tipoHabitacionGuid)) errors.tipoHabitacionGuid = "Selecciona tipo.";
-  if (!form.numeroHabitacion.trim()) errors.numeroHabitacion = "Número obligatorio.";
-  if (!form.precioBase || Number(form.precioBase) <= 0) errors.precioBase = "Precio > 0.";
-  if (isEdit && !HABITACION_ESTADOS.includes(form.estadoHabitacion)) {
-    errors.estadoHabitacion = "Estado inválido.";
-  }
-  return errors;
 };
 
 export default function AdminHabitacionFormScreen({ navigation, route }) {
@@ -115,25 +106,24 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    const numericSanitizers = {
+      piso: sanitizeOptionalDigits,
+      precioBase: sanitizeDecimalInput,
+    };
+    const nextValue = numericSanitizers[key] ? numericSanitizers[key](value) : value;
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+  };
 
   const onSubmit = async () => {
-    const errors = validate(form, isEdit);
+    const errors = validateHabitacionForm(form, isEdit);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
 
     setSaving(true);
     setError("");
     try {
-      const payload = {
-        sucursalGuid: form.sucursalGuid,
-        tipoHabitacionGuid: form.tipoHabitacionGuid,
-        numeroHabitacion: form.numeroHabitacion,
-        piso: form.piso === "" ? null : Number(form.piso),
-        precioBase: Number(form.precioBase),
-        descripcionHabitacion: form.descripcionHabitacion || null,
-        ...(isEdit ? { estadoHabitacion: form.estadoHabitacion } : {}),
-      };
+      const payload = buildHabitacionPayload(form, isEdit);
       if (isEdit) await updateHabitacion(id, payload);
       else await createHabitacion(payload);
       Alert.alert("Guardado", isEdit ? "Habitación actualizada." : "Habitación creada.");
@@ -164,29 +154,28 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
-      <SelectField
+      <ScrollSelectField
         label="Sucursal"
         value={form.sucursalGuid}
         options={[{ value: "", label: "Seleccionar" }, ...sucursalOptions]}
         onChange={(v) => setField("sucursalGuid", v)}
+        error={fieldErrors.sucursalGuid}
       />
-      {fieldErrors.sucursalGuid ? <Text style={styles.error}>{fieldErrors.sucursalGuid}</Text> : null}
-      <SelectField
+      <ScrollSelectField
         label="Tipo habitación"
         value={form.tipoHabitacionGuid}
         options={[{ value: "", label: "Seleccionar" }, ...tipoOptions]}
         onChange={(v) => setField("tipoHabitacionGuid", v)}
+        error={fieldErrors.tipoHabitacionGuid}
       />
-      {fieldErrors.tipoHabitacionGuid ? (
-        <Text style={styles.error}>{fieldErrors.tipoHabitacionGuid}</Text>
-      ) : null}
       <FormField
         label="Número"
         value={form.numeroHabitacion}
         onChangeText={(v) => setField("numeroHabitacion", v)}
+        maxLength={MAX_LENGTHS.habitacion.numero}
         error={fieldErrors.numeroHabitacion}
       />
-      <FormField label="Piso" value={form.piso} onChangeText={(v) => setField("piso", v)} keyboardType="numeric" />
+      <FormField label="Piso" value={form.piso} onChangeText={(v) => setField("piso", v)} keyboardType="numeric" error={fieldErrors.piso} />
       <FormField
         label="Precio base"
         value={form.precioBase}
@@ -199,6 +188,8 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
         value={form.descripcionHabitacion}
         onChangeText={(v) => setField("descripcionHabitacion", v)}
         multiline
+        maxLength={MAX_LENGTHS.habitacion.descripcion}
+        error={fieldErrors.descripcionHabitacion}
       />
       {isEdit ? (
         <SelectField
@@ -211,8 +202,3 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
     </AdminFormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  muted: { color: colors.muted },
-  error: { color: colors.danger, fontWeight: "700", fontSize: 12 },
-});

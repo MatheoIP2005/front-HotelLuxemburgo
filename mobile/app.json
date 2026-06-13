@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0f766e"
+        "backgroundColor": "#1a1a2e"
       }
     },
     "plugins": [

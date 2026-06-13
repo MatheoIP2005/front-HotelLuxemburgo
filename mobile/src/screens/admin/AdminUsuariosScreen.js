@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import AdminListCard from "../../components/admin/AdminListCard";
 import AdminListScreen from "../../components/admin/AdminListScreen";
+import FormField from "../../components/admin/FormField";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import {
   deleteUsuario,
@@ -10,6 +11,7 @@ import {
 } from "../../services/usuarios.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
+import { validateMotivoInhabilitacion } from "../../utils/text";
 import { confirmAdminAction, normalizeAdminList, pickGuid } from "../../utils/adminCollection";
 import { getUsuarioDisplayName, getUsuarioId } from "../../utils/usuarios";
 import { colors } from "../../styles/theme";
@@ -22,6 +24,7 @@ export default function AdminUsuariosScreen({ navigation }) {
   const [error, setError] = useState("");
   const [inhabilitarId, setInhabilitarId] = useState(null);
   const [motivoInhabilitar, setMotivoInhabilitar] = useState("");
+  const [motivoError, setMotivoError] = useState("");
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -54,17 +57,14 @@ export default function AdminUsuariosScreen({ navigation }) {
   };
 
   const onConfirmInhabilitar = async () => {
-    const motivo = motivoInhabilitar.trim();
-    if (!motivo) {
-      setError("Ingresa un motivo de inhabilitación.");
+    const motivoErr = validateMotivoInhabilitacion(motivoInhabilitar);
+    if (motivoErr) {
+      setMotivoError(motivoErr);
       return;
     }
-    if (motivo.length > MAX_LENGTHS.rol.motivo) {
-      setError(`El motivo no puede exceder ${MAX_LENGTHS.rol.motivo} caracteres.`);
-      return;
-    }
+    setMotivoError("");
     try {
-      await inhabilitarUsuario(inhabilitarId, motivo);
+      await inhabilitarUsuario(inhabilitarId, motivoInhabilitar.trim());
       setInhabilitarId(null);
       setMotivoInhabilitar("");
       load(true);
@@ -77,6 +77,7 @@ export default function AdminUsuariosScreen({ navigation }) {
     if (!(await confirmAdminAction("Inhabilitar", "¿Inhabilitar este usuario?"))) return;
     setInhabilitarId(id);
     setMotivoInhabilitar("");
+    setMotivoError("");
   };
 
   return (
@@ -100,14 +101,17 @@ export default function AdminUsuariosScreen({ navigation }) {
           </Pressable>
           {inhabilitarId ? (
             <View style={styles.inhabilitarBox}>
-              <Text style={styles.inhabilitarTitle}>Motivo de inhabilitación</Text>
-              <TextInput
-                style={styles.input}
+              <FormField
+                label="Motivo de inhabilitación"
                 value={motivoInhabilitar}
-                onChangeText={setMotivoInhabilitar}
+                onChangeText={(value) => {
+                  setMotivoInhabilitar(value);
+                  if (motivoError) setMotivoError("");
+                }}
                 placeholder="Motivo (obligatorio)"
                 maxLength={MAX_LENGTHS.rol.motivo}
                 multiline
+                error={motivoError}
               />
               <View style={styles.inhabilitarActions}>
                 <Pressable style={styles.btnSecondary} onPress={() => setInhabilitarId(null)}>
@@ -170,35 +174,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  addText: { color: "#fff", fontWeight: "800" },
+  addText: { color: colors.onPrimary, fontWeight: "800" },
   inhabilitarBox: {
     marginBottom: 12,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#fffbeb",
+    backgroundColor: colors.warningBg,
     borderWidth: 1,
-    borderColor: "#fcd34d",
+    borderColor: colors.warningBorder,
+    gap: 8,
   },
-  inhabilitarTitle: { fontWeight: "700", marginBottom: 8, color: "#92400e" },
-  input: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
-  },
-  inhabilitarActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  inhabilitarActions: { flexDirection: "row", gap: 8 },
   btnSecondary: {
     flex: 1,
     minHeight: 40,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e2e8f0",
+    backgroundColor: colors.secondaryBg,
   },
-  btnSecondaryText: { fontWeight: "700", color: "#334155" },
+  btnSecondaryText: { fontWeight: "700", color: colors.textSecondary },
   btnWarning: {
     flex: 1,
     minHeight: 40,
@@ -207,5 +202,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.warning,
   },
-  btnWarningText: { fontWeight: "700", color: "#fff" },
+  btnWarningText: { fontWeight: "700", color: colors.onPrimary },
 });

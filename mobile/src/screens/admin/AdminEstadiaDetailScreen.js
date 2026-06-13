@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     padding: 10,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     textAlignVertical: "top",
   },
   primaryButton: {
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 8,
   },
-  secondaryText: { color: "#fff", fontWeight: "800" },
-  buttonText: { color: "#fff", fontWeight: "800" },
+  secondaryText: { color: colors.onPrimary, fontWeight: "800" },
+  buttonText: { color: colors.onPrimary, fontWeight: "800" },
   disabled: { opacity: 0.7 },
 });

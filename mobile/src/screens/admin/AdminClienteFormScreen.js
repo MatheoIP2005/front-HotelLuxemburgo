@@ -15,8 +15,9 @@ import { normalizeTipoIdentificacion } from "../../../../src/shared/utils/constr
 import {
   CLIENT_KIND_OPTIONS,
   IDENTIFICATION_TYPE_OPTIONS,
+  MAX_LENGTHS,
 } from "../../../../src/utils/constraints";
-import { validateClienteForm } from "../../utils/clientes";
+import { validateClienteForm, resolveClienteFieldUpdate } from "../../utils/clientes";
 import { normalizeAdminList } from "../../utils/adminCollection";
 
 const EMPTY_FORM = {
@@ -69,7 +70,8 @@ export default function AdminClienteFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) =>
+    setForm((prev) => resolveClienteFieldUpdate(prev, key, value));
 
   const onSubmit = async () => {
     const errors = validateClienteForm(form, isEdit);
@@ -162,7 +164,9 @@ export default function AdminClienteFormScreen({ navigation, route }) {
         label="Tipo cliente"
         value={form.razonSocial}
         options={CLIENT_KIND_OPTIONS}
-        onChange={(v) => setField("razonSocial", v)}
+        onChange={(v) => {
+          setField("razonSocial", v);
+        }}
       />
       <FormField
         label="Número identificación"
@@ -170,12 +174,14 @@ export default function AdminClienteFormScreen({ navigation, route }) {
         onChangeText={(v) => setField("numeroIdentificacion", v)}
         autoCapitalize={form.tipoIdentificacion === "PAS" ? "characters" : "none"}
         keyboardType={form.tipoIdentificacion === "PAS" ? "default" : "numeric"}
+        maxLength={MAX_LENGTHS.cliente.numeroIdentificacion}
         error={fieldErrors.numeroIdentificacion}
       />
       <FormField
         label={isEmpresa ? "Razón social" : "Nombres"}
         value={form.nombres}
         onChangeText={(v) => setField("nombres", v)}
+        maxLength={MAX_LENGTHS.cliente.nombres}
         error={fieldErrors.nombres}
       />
       {!isEmpresa ? (
@@ -183,6 +189,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
           label="Apellidos"
           value={form.apellidos}
           onChangeText={(v) => setField("apellidos", v)}
+          maxLength={MAX_LENGTHS.cliente.apellidos}
           error={fieldErrors.apellidos}
         />
       ) : null}
@@ -192,6 +199,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
         onChangeText={(v) => setField("correo", v)}
         keyboardType="email-address"
         autoCapitalize="none"
+        maxLength={MAX_LENGTHS.cliente.correo}
         error={fieldErrors.correo}
       />
       <FormField
@@ -199,6 +207,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
         value={form.telefono}
         onChangeText={(v) => setField("telefono", v)}
         keyboardType="phone-pad"
+        maxLength={MAX_LENGTHS.cliente.telefono}
         error={fieldErrors.telefono}
       />
       <FormField
@@ -206,6 +215,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
         value={form.direccion}
         onChangeText={(v) => setField("direccion", v)}
         multiline
+        maxLength={MAX_LENGTHS.cliente.direccion}
         error={fieldErrors.direccion}
       />
       {isEdit ? (

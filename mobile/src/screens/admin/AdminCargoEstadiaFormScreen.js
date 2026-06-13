@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { Alert } from "react-native";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
 import ScrollSelectField from "../../components/admin/ScrollSelectField";
@@ -9,8 +9,14 @@ import { addCargoEstadia, getEstadia } from "../../services/estadias.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
 import { normalizeAdminList } from "../../utils/adminCollection";
-import { colors } from "../../styles/theme";
-
+import {
+  buildCargoEstadiaPayload,
+  validateCargoEstadiaForm,
+} from "../../utils/cargosEstadia";
+import {
+  sanitizeDecimalInput,
+  sanitizeOptionalDigits,
+} from "../../utils/numeric";
 const EMPTY_FORM = {
   catalogoGuid: "",
   descripcionCargo: "",
@@ -58,7 +64,14 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     [catalogo]
   );
 
-  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setField = (key, value) => {
+    const numericSanitizers = {
+      cantidad: sanitizeOptionalDigits,
+      precioUnitario: sanitizeDecimalInput,
+    };
+    const nextValue = numericSanitizers[key] ? numericSanitizers[key](value) : value;
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+  };
 
   const onSelectCatalogo = (guid) => {
     const item = catalogo.find((c) => c.catalogoGuid === guid);
@@ -75,17 +88,7 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     }));
   };
 
-  const validate = () => {
-    const errors = {};
-    if (!form.catalogoGuid) errors.catalogoGuid = "Selecciona un ítem del catálogo.";
-    if (!form.descripcionCargo.trim()) errors.descripcionCargo = "Descripción obligatoria.";
-    else if (form.descripcionCargo.trim().length > MAX_LENGTHS.cargoEstadia.descripcion) {
-      errors.descripcionCargo = "Máximo 250 caracteres.";
-    }
-    if (Number(form.cantidad) <= 0) errors.cantidad = "Cantidad debe ser mayor a 0.";
-    if (Number(form.precioUnitario) < 0) errors.precioUnitario = "Precio no puede ser negativo.";
-    return errors;
-  };
+  const validate = () => validateCargoEstadiaForm(form);
 
   const onSubmit = async () => {
     const errors = validate();
@@ -100,12 +103,7 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     setSaving(true);
     setError("");
     try {
-      await addCargoEstadia(estadiaId, {
-        catalogoGuid: form.catalogoGuid,
-        descripcionCargo: form.descripcionCargo.trim(),
-        cantidad: Number(form.cantidad),
-        precioUnitario: Number(form.precioUnitario),
-      });
+      await addCargoEstadia(estadiaId, buildCargoEstadiaPayload(form));
       Alert.alert("Guardado", "Cargo registrado.");
       navigation.goBack();
     } catch (err) {
@@ -140,15 +138,14 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
         value={form.catalogoGuid}
         options={[{ value: "", label: "Seleccionar" }, ...catalogoOptions]}
         onChange={onSelectCatalogo}
+        error={fieldErrors.catalogoGuid}
       />
-      {fieldErrors.catalogoGuid ? (
-        <Text style={styles.fieldError}>{fieldErrors.catalogoGuid}</Text>
-      ) : null}
       <FormField
         label="Descripción"
         value={form.descripcionCargo}
         onChangeText={(v) => setField("descripcionCargo", v)}
         multiline
+        maxLength={MAX_LENGTHS.cargoEstadia.descripcion}
         error={fieldErrors.descripcionCargo}
       />
       <FormField
@@ -168,9 +165,3 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     </AdminFormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  muted: { color: colors.muted },
-  error: { color: colors.danger, fontWeight: "700" },
-  fieldError: { color: colors.danger, fontSize: 12, fontWeight: "600" },
-});

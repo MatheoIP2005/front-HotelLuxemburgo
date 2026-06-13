@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   buttonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
   },
 });

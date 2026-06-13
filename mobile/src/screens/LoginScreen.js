@@ -88,7 +88,7 @@ export default function LoginScreen({ navigation }) {
             onPress={submit}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.primaryButtonText}>Entrar</Text>
             )}
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   error: {
     color: colors.danger,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   primaryButtonText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "800",
     fontSize: 16,
   },

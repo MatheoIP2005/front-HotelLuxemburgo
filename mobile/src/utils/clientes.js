@@ -7,6 +7,109 @@ import {
   PERSON_NAME_REGEX,
 } from "../../../src/utils/constraints";
 import { normalizeTipoIdentificacion } from "../../../src/shared/utils/constraints";
+import {
+  sanitizeIdentificationNumber,
+  sanitizePhoneDigits,
+  sanitizeCompanyNameInput,
+  sanitizePersonNameInput,
+} from "./text";
+
+export const toClienteFormFromPublic = (form) => ({
+  tipoIdentificacion: form.tipo_identificacion,
+  numeroIdentificacion: form.numero_identificacion,
+  nombres: form.nombres,
+  apellidos: form.apellidos,
+  razonSocial: "NAT",
+  correo: form.correo,
+  telefono: form.telefono,
+  direccion: form.direccion,
+});
+
+const PUBLIC_FIELD_MAP = {
+  tipoIdentificacion: "tipo_identificacion",
+  numeroIdentificacion: "numero_identificacion",
+  nombres: "nombres",
+  apellidos: "apellidos",
+  correo: "correo",
+  telefono: "telefono",
+  direccion: "direccion",
+};
+
+export const mapClienteErrorsToPublic = (errors) =>
+  Object.fromEntries(
+    Object.entries(errors)
+      .map(([key, message]) => [PUBLIC_FIELD_MAP[key] ?? key, message])
+      .filter(([, message]) => Boolean(message))
+  );
+
+export const resolveClienteFieldUpdate = (prev, key, value) => {
+  if (key === "tipoIdentificacion") {
+    return {
+      ...prev,
+      tipoIdentificacion: normalizeTipoIdentificacion(value),
+      numeroIdentificacion: "",
+    };
+  }
+
+  if (key === "razonSocial") {
+    return {
+      ...prev,
+      razonSocial: value,
+      apellidos: value === "EMP" ? "" : prev.apellidos,
+    };
+  }
+
+  if (key === "telefono") {
+    return {
+      ...prev,
+      telefono: sanitizePhoneDigits(value, MAX_LENGTHS.cliente.telefono),
+    };
+  }
+
+  if (key === "numeroIdentificacion") {
+    const sanitized = sanitizeIdentificationNumber(value, prev.tipoIdentificacion);
+    if (sanitized === null) return prev;
+    return { ...prev, numeroIdentificacion: sanitized };
+  }
+
+  if (key === "nombres") {
+    const tipoCliente = prev.razonSocial || "NAT";
+    const sanitized =
+      tipoCliente === "EMP"
+        ? sanitizeCompanyNameInput(value)
+        : sanitizePersonNameInput(value);
+    if (sanitized === null) return prev;
+    return { ...prev, nombres: sanitized };
+  }
+
+  if (key === "apellidos") {
+    const sanitized = sanitizePersonNameInput(value);
+    if (sanitized === null) return prev;
+    return { ...prev, apellidos: sanitized };
+  }
+
+  return { ...prev, [key]: value };
+};
+
+export const resolvePublicClienteFieldUpdate = (prev, key, value) => {
+  const adminKey =
+    key === "tipo_identificacion"
+      ? "tipoIdentificacion"
+      : key === "numero_identificacion"
+        ? "numeroIdentificacion"
+        : key;
+  const adminPrev = toClienteFormFromPublic(prev);
+  const next = resolveClienteFieldUpdate(adminPrev, adminKey, value);
+  return {
+    tipo_identificacion: next.tipoIdentificacion,
+    numero_identificacion: next.numeroIdentificacion,
+    nombres: next.nombres,
+    apellidos: next.apellidos,
+    correo: next.correo,
+    telefono: next.telefono,
+    direccion: next.direccion,
+  };
+};
 
 export const validateClienteForm = (form, isEdit = false) => {
   const errors = {};

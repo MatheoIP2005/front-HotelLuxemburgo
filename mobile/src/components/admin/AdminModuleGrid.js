@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: colors.badgeBg,
   },
   tabActive: {
     backgroundColor: colors.primary,
@@ -126,6 +126,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   tabTextActive: {
-    color: "#fff",
+    color: colors.onPrimary,
   },
 });

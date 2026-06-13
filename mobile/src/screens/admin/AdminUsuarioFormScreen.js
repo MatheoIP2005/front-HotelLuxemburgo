@@ -10,8 +10,8 @@ import {
   updateUsuario,
 } from "../../services/usuarios.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { PERSON_NAME_REGEX, USER_STATES } from "../../../../src/utils/constraints";
-import { validateUsuarioForm } from "../../utils/usuarios";
+import { MAX_LENGTHS, USER_STATES } from "../../../../src/utils/constraints";
+import { validateUsuarioForm, resolveUsuarioFieldUpdate } from "../../utils/usuarios";
 import { colors } from "../../styles/theme";
 
 const EMPTY_FORM = {
@@ -60,12 +60,8 @@ export default function AdminUsuarioFormScreen({ navigation, route }) {
     load();
   }, [bootstrapping, isAuthenticated, id, isEdit]);
 
-  const setField = (key, value) => {
-    if ((key === "nombres" || key === "apellidos") && value && !PERSON_NAME_REGEX.test(value)) {
-      return;
-    }
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const setField = (key, value) =>
+    setForm((prev) => resolveUsuarioFieldUpdate(prev, key, value));
 
   const onSubmit = async () => {
     const errors = validateUsuarioForm(form, isEdit);
@@ -127,7 +123,7 @@ export default function AdminUsuarioFormScreen({ navigation, route }) {
         label="Username"
         value={form.username}
         onChangeText={(value) => setField("username", value)}
-        maxLength={15}
+        maxLength={MAX_LENGTHS.usuario.username}
         autoCapitalize="none"
         error={fieldErrors.username}
       />
@@ -135,21 +131,21 @@ export default function AdminUsuarioFormScreen({ navigation, route }) {
         label="Nombres"
         value={form.nombres}
         onChangeText={(value) => setField("nombres", value)}
-        maxLength={30}
+        maxLength={MAX_LENGTHS.usuario.nombres}
         error={fieldErrors.nombres}
       />
       <FormField
         label="Apellidos"
         value={form.apellidos}
         onChangeText={(value) => setField("apellidos", value)}
-        maxLength={30}
+        maxLength={MAX_LENGTHS.usuario.apellidos}
         error={fieldErrors.apellidos}
       />
       <FormField
         label="Correo"
         value={form.correo}
         onChangeText={(value) => setField("correo", value)}
-        maxLength={120}
+        maxLength={MAX_LENGTHS.usuario.correo}
         keyboardType="email-address"
         autoCapitalize="none"
         error={fieldErrors.correo}

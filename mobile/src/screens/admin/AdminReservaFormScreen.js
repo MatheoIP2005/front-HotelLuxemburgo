@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text } from "react-native";
 import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
+import DateField from "../../components/admin/DateField";
 import FormField from "../../components/admin/FormField";
 import ScrollSelectField from "../../components/admin/ScrollSelectField";
 import SelectField from "../../components/admin/SelectField";
@@ -17,9 +18,15 @@ import { RESERVA_CANALES } from "../../../../src/utils/constraints";
 import { getClienteDisplayName } from "../../utils/clientes";
 import { normalizeAdminList, pickGuid } from "../../utils/adminCollection";
 import {
+  sanitizeDecimalInput,
+  sanitizeOptionalDigits,
+} from "../../utils/numeric";
+import {
   addDaysToIsoDate,
+  buildReservaLineaPayload,
   getLocalDateMin,
   isValidGuid,
+  validateReservaForm,
 } from "../../utils/reservas";
 import { colors } from "../../styles/theme";
 
@@ -53,6 +60,7 @@ export default function AdminReservaFormScreen({ navigation }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [lineFieldErrors, setLineFieldErrors] = useState([]);
 
   const minFechaInicio = getLocalDateMin();
   const minFechaFin = form.fechaInicio
@@ -160,12 +168,23 @@ export default function AdminReservaFormScreen({ navigation }) {
       return;
     }
     if (key === "fechaInicio") {
-      setForm((prev) => ({
-        ...prev,
-        fechaInicio: value,
-        fechaFin: prev.fechaFin && prev.fechaFin <= value ? "" : prev.fechaFin,
-        habitaciones: prev.habitaciones.map(() => createEmptyLinea()),
-      }));
+      setForm((prev) => {
+        if (!value) {
+          return {
+            ...prev,
+            fechaInicio: "",
+            fechaFin: "",
+            habitaciones: prev.habitaciones.map(() => createEmptyLinea()),
+          };
+        }
+
+        return {
+          ...prev,
+          fechaInicio: value,
+          fechaFin: prev.fechaFin && prev.fechaFin <= value ? "" : prev.fechaFin,
+          habitaciones: prev.habitaciones.map(() => createEmptyLinea()),
+        };
+      });
       return;
     }
     if (key === "fechaFin") {
@@ -210,61 +229,23 @@ export default function AdminReservaFormScreen({ navigation }) {
     );
   };
 
-  const validate = () => {
-    const errors = {};
-    if (!isValidGuid(form.clienteGuid)) errors.clienteGuid = "Selecciona cliente.";
-    if (!isValidGuid(form.sucursalGuid)) errors.sucursalGuid = "Selecciona sucursal.";
-    if (!form.fechaInicio) errors.fechaInicio = "Fecha inicio obligatoria.";
-    if (!form.fechaFin) errors.fechaFin = "Fecha fin obligatoria.";
-    if (form.fechaInicio && form.fechaFin && form.fechaFin <= form.fechaInicio) {
-      errors.fechaFin = "Fin debe ser posterior al inicio.";
-    }
-    if (form.fechaInicio && form.fechaInicio < minFechaInicio) {
-      errors.fechaInicio = "No se permiten fechas pasadas.";
-    }
-    if (!RESERVA_CANALES.includes(form.origenCanalReserva)) {
-      errors.origenCanalReserva = "Canal inválido.";
-    }
-    return errors;
-  };
+  const validate = () => validateReservaForm(form, { minFechaInicio });
 
   const onSubmit = async () => {
-    const errors = validate();
-    setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    const { formErrors, lineErrors, hasLineErrors } = validate();
+    setFieldErrors(formErrors);
+    setLineFieldErrors(lineErrors);
+    if (Object.keys(formErrors).length || hasLineErrors) return;
 
     setSaving(true);
     setError("");
     try {
-      const habitaciones = form.habitaciones.map((linea, index) => {
-        if (!isValidGuid(linea.habitacionGuid)) {
-          throw new Error(`Selecciona habitación en línea ${index + 1}.`);
-        }
-        if (!isValidGuid(linea.tarifaGuid)) {
-          throw new Error(`Selecciona tarifa en línea ${index + 1}.`);
-        }
-        const precio = Number(linea.precioNocheAplicado);
-        if (!precio || precio <= 0) {
-          throw new Error(`Precio inválido en línea ${index + 1}.`);
-        }
-        return {
-          habitacionGuid: linea.habitacionGuid,
-          tarifaGuid: linea.tarifaGuid,
+      const habitaciones = form.habitaciones.map((linea) =>
+        buildReservaLineaPayload(linea, {
           fechaInicio: form.fechaInicio,
           fechaFin: form.fechaFin,
-          numAdultos: Number(linea.numAdultos) || 1,
-          numNinos: Number(linea.numNinos) || 0,
-          precioNocheAplicado: precio,
-        };
-      });
-
-      const guids = habitaciones.map((h) => h.habitacionGuid);
-      if (new Set(guids).size !== guids.length) {
-        throw new Error("No repitas la misma habitación en varias líneas.");
-      }
-      if (habitaciones.length === 0) {
-        throw new Error("Agrega al menos una habitación.");
-      }
+        })
+      );
 
       await createReserva({
         clienteGuid: form.clienteGuid,
@@ -302,31 +283,29 @@ export default function AdminReservaFormScreen({ navigation }) {
         value={form.clienteGuid}
         options={[{ value: "", label: "Seleccionar cliente" }, ...clienteOptions]}
         onChange={(v) => setField("clienteGuid", v)}
+        error={fieldErrors.clienteGuid}
       />
-      {fieldErrors.clienteGuid ? <Text style={styles.fieldError}>{fieldErrors.clienteGuid}</Text> : null}
 
       <ScrollSelectField
         label="Sucursal"
         value={form.sucursalGuid}
         options={[{ value: "", label: "Seleccionar sucursal" }, ...sucursalOptions]}
         onChange={(v) => setField("sucursalGuid", v)}
+        error={fieldErrors.sucursalGuid}
       />
-      {fieldErrors.sucursalGuid ? (
-        <Text style={styles.fieldError}>{fieldErrors.sucursalGuid}</Text>
-      ) : null}
 
-      <FormField
-        label="Fecha inicio (YYYY-MM-DD)"
+      <DateField
+        label="Fecha inicio"
         value={form.fechaInicio}
-        onChangeText={(v) => setField("fechaInicio", v)}
-        placeholder={minFechaInicio}
+        onChange={(value) => setField("fechaInicio", value)}
+        minDate={minFechaInicio}
         error={fieldErrors.fechaInicio}
       />
-      <FormField
-        label="Fecha fin (YYYY-MM-DD)"
+      <DateField
+        label="Fecha fin"
         value={form.fechaFin}
-        onChangeText={(v) => setField("fechaFin", v)}
-        placeholder={minFechaFin}
+        onChange={(value) => setField("fechaFin", value)}
+        minDate={minFechaFin}
         error={fieldErrors.fechaFin}
       />
 
@@ -342,9 +321,16 @@ export default function AdminReservaFormScreen({ navigation }) {
         value={form.observaciones}
         onChangeText={(v) => setField("observaciones", v)}
         multiline
+        maxLength={2000}
+        error={fieldErrors.observaciones}
       />
 
+      {fieldErrors.habitaciones ? (
+        <Text style={styles.lineError}>{fieldErrors.habitaciones}</Text>
+      ) : null}
+
       {form.habitaciones.map((linea, index) => {
+        const lineErrors = lineFieldErrors[index] ?? {};
         const habOptions = getHabitacionesParaLinea(index).map((h) => ({
           value: h.habitacionGuid,
           label: `Hab. ${h.numeroHabitacion}${h.tipoNombre ? ` · ${h.tipoNombre}` : ""}`,
@@ -368,6 +354,7 @@ export default function AdminReservaFormScreen({ navigation }) {
                       (hab?.precioBase != null ? String(hab.precioBase) : ""),
                   });
                 }}
+                error={lineErrors.habitacionGuid}
                 emptyLabel={
                   !fechasValidas
                     ? "Indica fechas válidas"
@@ -391,24 +378,30 @@ export default function AdminReservaFormScreen({ navigation }) {
                       : linea.precioNocheAplicado,
                 });
               }}
+              error={lineErrors.tarifaGuid}
             />
             <FormField
               label="Adultos"
               value={linea.numAdultos}
-              onChangeText={(v) => updateLinea(index, { numAdultos: v })}
+              onChangeText={(v) => updateLinea(index, { numAdultos: sanitizeOptionalDigits(v) })}
               keyboardType="numeric"
+              error={lineErrors.numAdultos}
             />
             <FormField
               label="Niños"
               value={linea.numNinos}
-              onChangeText={(v) => updateLinea(index, { numNinos: v })}
+              onChangeText={(v) => updateLinea(index, { numNinos: sanitizeOptionalDigits(v) })}
               keyboardType="numeric"
+              error={lineErrors.numNinos}
             />
             <FormField
               label="Precio/noche"
               value={linea.precioNocheAplicado}
-              onChangeText={(v) => updateLinea(index, { precioNocheAplicado: v })}
+              onChangeText={(v) =>
+                updateLinea(index, { precioNocheAplicado: sanitizeDecimalInput(v) })
+              }
               keyboardType="decimal-pad"
+              error={lineErrors.precioNocheAplicado}
             />
             {form.habitaciones.length > 1 ? (
               <Pressable style={styles.removeBtn} onPress={() => removeLinea(index)}>
@@ -427,9 +420,8 @@ export default function AdminReservaFormScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  error: { color: colors.danger, fontWeight: "700" },
-  fieldError: { color: colors.danger, fontSize: 12, fontWeight: "600" },
   muted: { color: colors.muted },
+  lineError: { color: colors.danger, fontWeight: "600", marginBottom: 4 },
   addLineBtn: {
     minHeight: 44,
     borderRadius: 8,
@@ -437,7 +429,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
-  addLineText: { color: "#fff", fontWeight: "800" },
+  addLineText: { color: colors.onPrimary, fontWeight: "800" },
   removeBtn: { alignSelf: "flex-start" },
   removeText: { color: colors.danger, fontWeight: "700" },
 });

@@ -4,6 +4,16 @@ import {
   PERSON_NAME_REGEX,
   USER_STATES,
 } from "../../../src/utils/constraints";
+import { sanitizePersonNameInput } from "./text";
+
+export const resolveUsuarioFieldUpdate = (prev, key, value) => {
+  if (key === "nombres" || key === "apellidos") {
+    const sanitized = sanitizePersonNameInput(value);
+    if (sanitized === null) return prev;
+    return { ...prev, [key]: sanitized };
+  }
+  return { ...prev, [key]: value };
+};
 
 export const getUsuarioId = (usuario) => usuario?.usuarioGuid ?? null;
 

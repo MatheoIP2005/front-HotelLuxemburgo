@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   catalogItem: {
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.secondaryBg,
     color: colors.text,
   },
   actions: { gap: 8, marginTop: 8 },
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.warning,
   },
-  primaryBtnText: { color: "#fff", fontWeight: "800" },
+  primaryBtnText: { color: colors.onPrimary, fontWeight: "800" },
   disabled: { opacity: 0.6 },
   permisoCard: {
     flexDirection: "row",
@@ -244,5 +244,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.danger,
   },
-  removeText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  removeText: { color: colors.onPrimary, fontWeight: "700", fontSize: 12 },
 });

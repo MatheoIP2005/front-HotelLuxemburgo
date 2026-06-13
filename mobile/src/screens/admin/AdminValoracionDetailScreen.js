@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     padding: 10,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     textAlignVertical: "top",
   },
   primaryButton: {
@@ -265,6 +265,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.danger,
   },
-  buttonText: { color: "#fff", fontWeight: "800" },
+  buttonText: { color: colors.onPrimary, fontWeight: "800" },
   disabled: { opacity: 0.7 },
 });

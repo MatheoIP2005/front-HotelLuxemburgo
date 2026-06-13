@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     maxWidth: "40%",
     borderRadius: 6,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: colors.badgeBg,
     color: colors.text,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warning,
   },
   actionText: {
-    color: "#fff",
+    color: colors.onPrimary,
     fontWeight: "700",
     fontSize: 12,
   },

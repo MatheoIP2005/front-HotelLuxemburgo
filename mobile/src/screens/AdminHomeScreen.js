@@ -160,11 +160,13 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 12,
     alignItems: "center",
     gap: 4,
+    borderTopWidth: 3,
+    borderTopColor: colors.primary,
   },
   statValue: {
     color: colors.text,
@@ -189,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
   disabledButton: {
     opacity: 0.7,

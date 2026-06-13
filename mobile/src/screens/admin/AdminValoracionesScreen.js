@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.warning,
   },
-  searchText: { color: "#fff", fontWeight: "800" },
+  searchText: { color: colors.onPrimary, fontWeight: "800" },
   moderarBox: {
     marginBottom: 12,
     padding: 12,

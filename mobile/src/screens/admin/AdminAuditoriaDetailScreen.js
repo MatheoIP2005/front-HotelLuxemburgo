@@ -100,7 +100,7 @@ export default function AdminAuditoriaDetailScreen({ navigation, route }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Evento de auditoría</Text>
-      <Text style={styles.readOnly}>Solo lectura · no se publican eventos desde mobile</Text>
+      <Text style={styles.readOnly}>Solo lectura · no se publican eventos desde móvil</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <AdminDetailSection title="Resumen">
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.secondaryBg,
   },
   rowLabel: { color: colors.muted, flex: 1 },
   rowValue: {
@@ -148,13 +148,13 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   jsonBox: {
-    backgroundColor: "#0f172a",
+    backgroundColor: colors.nav,
     borderRadius: 8,
     padding: 12,
     ...shadow,
   },
   jsonText: {
-    color: "#e2e8f0",
+    color: colors.secondaryBg,
     fontFamily: "monospace",
     fontSize: 12,
     lineHeight: 18,
