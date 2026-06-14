@@ -21,9 +21,13 @@ const toClientePayload = (cliente = {}) => ({
 
 const toReservaHabitacionPayload = (item = {}, reserva = {}) => ({
   tipoHabitacionGuid: item.tipoHabitacionGuid ?? null,
+  habitacionGuid: item.habitacionGuid ?? null,
+  tarifaGuid: item.tarifaGuid ?? null,
   numHabitaciones: Number(item.numHabitaciones ?? reserva.numHabitaciones ?? 1),
   numAdultos: Number(item.numAdultos ?? reserva.numAdultos ?? 1),
   numNinos: Number(item.numNinos ?? reserva.numNinos ?? 0),
+  precioNocheAplicado:
+    item.precioNocheAplicado == null ? undefined : Number(item.precioNocheAplicado),
 });
 
 const toPublicReservaPayload = (data = {}) => ({

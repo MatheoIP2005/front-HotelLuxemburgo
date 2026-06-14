@@ -117,6 +117,11 @@
   margin-bottom: 0;
 }
 
+.roomCardUnavailable {
+  opacity: 0.62;
+  background: #fafafa;
+}
+
 .roomMedia {
   width: 190px;
   min-height: 132px;
@@ -203,6 +208,11 @@
 
 .selectRoomBtn:hover {
   background: #5c63d8;
+}
+
+.selectRoomBtn:disabled {
+  background: #b8bccd;
+  cursor: not-allowed;
 }
 
 .stickyCard {

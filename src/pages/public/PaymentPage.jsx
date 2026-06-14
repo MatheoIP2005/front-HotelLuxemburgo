@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useBooking from '../../hooks/useBooking';
 import { createPublicReserva } from '../../services/publicReservas.service';
+import { extractApiErrorMessage } from '../../shared/utils/api';
 import Navbar from '../../components/public/Navbar';
 import styles from './PaymentPage.module.css';
 
@@ -58,6 +59,12 @@ export default function PaymentPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (error) setError(null);
+    if (processingState === 'error') {
+      setProcessingState('idle');
+      setSimulationInfo(null);
+    }
+
     if (name === 'numero_tarjeta') {
       setForm((prev) => ({ ...prev, [name]: formatCardNumber(value) }));
       return;
@@ -83,6 +90,8 @@ export default function PaymentPage() {
 
   const handlePagar = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     const numeroTarjeta = sanitizeDigits(form.numero_tarjeta);
     const cvv = sanitizeDigits(form.cvv);
     const nombreTitular = form.nombre_titular.trim();
@@ -120,14 +129,6 @@ export default function PaymentPage() {
     setSimulationInfo(null);
 
     try {
-      const authorizationCode = randomToken('AUTH');
-      const transactionCode = randomToken('TXN');
-      setSimulationInfo({
-        authorizationCode,
-        transactionCode,
-        maskedCard: `**** **** **** ${numeroTarjeta.slice(-4)}`,
-      });
-
       setProcessingState('processing');
       await new Promise((resolve) => window.setTimeout(resolve, 900));
 
@@ -150,6 +151,10 @@ export default function PaymentPage() {
         habitaciones: [
           {
             tipoHabitacionGuid: bookingData.habitacion?.tipoHabitacionGuid ?? null,
+            habitacionGuid: bookingData.habitacion?.habitacionGuid ?? null,
+            tarifaGuid: bookingData.habitacion?.tarifaGuid ?? null,
+            precioNocheAplicado:
+              bookingData.habitacion?.precioPorNoche ?? bookingData.precioTotal ?? null,
             numHabitaciones: bookingData.numHabitaciones || 1,
             numAdultos: bookingData.numAdultos || 1,
             numNinos: bookingData.numNinos || 0,
@@ -157,11 +162,20 @@ export default function PaymentPage() {
         ],
       });
 
+      const authorizationCode = randomToken('AUTH');
+      const transactionCode = randomToken('TXN');
+      const maskedCard = `**** **** **** ${numeroTarjeta.slice(-4)}`;
+
+      setSimulationInfo({
+        authorizationCode,
+        transactionCode,
+        maskedCard,
+      });
       setPublicReservation(reserva);
       setSimulatedPayment({
         authorizationCode,
         transactionCode,
-        maskedCard: `**** **** **** ${numeroTarjeta.slice(-4)}`,
+        maskedCard,
         nombreTitular,
         fechaVencimiento,
         metodo: 'TARJETA SIMULADA',
@@ -170,7 +184,8 @@ export default function PaymentPage() {
       navigate('/confirmacion');
     } catch (err) {
       setProcessingState('error');
-      setError(err?.response?.data?.message || err?.response?.data?.error || err?.message || 'No se pudo completar el pago');
+      setSimulationInfo(null);
+      setError(extractApiErrorMessage(err, 'No se pudo crear la reserva.'));
     } finally {
       setLoading(false);
     }
@@ -271,7 +286,7 @@ export default function PaymentPage() {
                       ? 'Procesando pago simulado...'
                       : processingState === 'success'
                         ? 'Pago simulado aprobado.'
-                        : 'Error en la simulación.'}
+                        : 'No se pudo crear la reserva.'}
                 </span>
               </div>
               {simulationInfo && (

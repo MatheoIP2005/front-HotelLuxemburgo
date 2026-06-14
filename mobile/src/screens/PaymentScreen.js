@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { createPublicReserva } from "../services/publicServices";
+import { extractApiErrorMessage } from "../../../src/shared/utils/api";
 import { useBooking } from "../context/BookingContext";
 import { formatMoney } from "../utils/booking";
 import {
@@ -27,7 +28,7 @@ const PROCESSING_LABELS = {
   validating: "Validando datos simulados...",
   processing: "Procesando pago simulado...",
   success: "Pago simulado aprobado.",
-  error: "Error en la simulación.",
+  error: "No se pudo crear la reserva.",
 };
 
 export default function PaymentScreen({ navigation }) {
@@ -50,6 +51,12 @@ export default function PaymentScreen({ navigation }) {
   }, [bookingData.cliente, navigation]);
 
   const handleChange = (name, value) => {
+    if (error) setError("");
+    if (processingState === "error") {
+      setProcessingState("idle");
+      setSimulationInfo(null);
+    }
+
     if (name === "numero_tarjeta") {
       setForm((prev) => ({ ...prev, [name]: formatCardNumber(value) }));
       return;
@@ -69,6 +76,8 @@ export default function PaymentScreen({ navigation }) {
   };
 
   const handlePay = async () => {
+    if (loading) return;
+
     const numeroTarjeta = sanitizeDigits(form.numero_tarjeta);
     const cvv = sanitizeDigits(form.cvv);
     const nombreTitular = form.nombre_titular.trim();
@@ -111,16 +120,6 @@ export default function PaymentScreen({ navigation }) {
     setSimulationInfo(null);
 
     try {
-      const authorizationCode = randomToken("AUTH");
-      const transactionCode = randomToken("TXN");
-      const maskedCard = buildMaskedCard(numeroTarjeta);
-
-      setSimulationInfo({
-        authorizationCode,
-        transactionCode,
-        maskedCard,
-      });
-
       setProcessingState("processing");
       await new Promise((resolve) => setTimeout(resolve, 900));
 
@@ -143,6 +142,10 @@ export default function PaymentScreen({ navigation }) {
         habitaciones: [
           {
             tipoHabitacionGuid: bookingData.habitacion?.tipoHabitacionGuid ?? null,
+            habitacionGuid: bookingData.habitacion?.habitacionGuid ?? null,
+            tarifaGuid: bookingData.habitacion?.tarifaGuid ?? null,
+            precioNocheAplicado:
+              bookingData.habitacion?.precioPorNoche ?? bookingData.precioTotal ?? null,
             numHabitaciones: bookingData.numHabitaciones || 1,
             numAdultos: bookingData.numAdultos || 1,
             numNinos: bookingData.numNinos || 0,
@@ -150,6 +153,15 @@ export default function PaymentScreen({ navigation }) {
         ],
       });
 
+      const authorizationCode = randomToken("AUTH");
+      const transactionCode = randomToken("TXN");
+      const maskedCard = buildMaskedCard(numeroTarjeta);
+
+      setSimulationInfo({
+        authorizationCode,
+        transactionCode,
+        maskedCard,
+      });
       setPublicReservation(reserva);
       setSimulatedPayment({
         authorizationCode,
@@ -163,12 +175,8 @@ export default function PaymentScreen({ navigation }) {
       navigation.replace("Confirmation");
     } catch (err) {
       setProcessingState("error");
-      setError(
-        err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "No se pudo completar el pago"
-      );
+      setSimulationInfo(null);
+      setError(extractApiErrorMessage(err, "No se pudo crear la reserva."));
     } finally {
       setLoading(false);
     }

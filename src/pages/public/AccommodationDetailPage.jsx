@@ -184,8 +184,10 @@ const normalizeRoomOptions = (propiedad) => {
         precioPorNoche:
           tarifaRelacionada?.precioPorNoche ??
           tipo.precioDesde ??
+          tipo.precioBase ??
           propiedad?.precioDesde ??
           0,
+        disponiblesEnRango: Number(tipo.disponiblesEnRango ?? tipo.disponibles ?? 0),
         tipoHabitacionGuid: tipo.tipoHabitacionGuid ?? null,
         habitacionGuid: tipo.habitacionGuid ?? null,
         tarifaGuid: tarifaRelacionada?.tarifaGuid ?? tipo.tarifaGuid ?? null,
@@ -210,8 +212,10 @@ const normalizeRoomOptions = (propiedad) => {
       precioPorNoche:
         habitacion.precioPorNoche ??
         habitacion.precioDesde ??
+        habitacion.precioBase ??
         propiedad?.precioDesde ??
         0,
+      disponiblesEnRango: Number(habitacion.disponiblesEnRango ?? habitacion.disponibles ?? 1),
       tipoHabitacionGuid: habitacion.tipoHabitacionGuid ?? null,
       habitacionGuid: habitacion.habitacionGuid ?? null,
       tarifaGuid: habitacion.tarifaGuid ?? tarifasActivas[0]?.tarifaGuid ?? null,
@@ -269,6 +273,7 @@ export default function AccommodationDetailPage() {
   }, [id, fechaEntrada, fechaSalida]);
 
   const handleSeleccionarHabitacion = (hab) => {
+    if (Number(hab?.disponiblesEnRango ?? 1) <= 0) return;
     setHabitacionSeleccionada(hab);
   };
 
@@ -276,22 +281,29 @@ export default function AccommodationDetailPage() {
     if (!propiedad) return;
 
     const roomOptions = normalizeRoomOptions(propiedad);
+    const roomOptionsDisponibles = roomOptions.filter(
+      (room) => Number(room.disponiblesEnRango ?? 1) > 0
+    );
     const habitacionesDisponibles =
       typeof propiedad.habitacionesDisponibles === 'number'
         ? propiedad.habitacionesDisponibles
-        : roomOptions.length;
+        : roomOptionsDisponibles.length;
     const hayUnidadesDisponibles = habitacionesDisponibles > 0;
+    const seleccionDisponible =
+      habitacionSeleccionada &&
+      Number(habitacionSeleccionada.disponiblesEnRango ?? 1) > 0;
 
     const habitacionParaReserva =
-      habitacionSeleccionada ||
+      (seleccionDisponible ? habitacionSeleccionada : null) ||
       (hayUnidadesDisponibles
         ? {
             id: null,
             nombre: 'Habitación por asignar',
-            precioPorNoche: propiedad.precioDesde || 0,
-            tipoHabitacionGuid: roomOptions[0]?.tipoHabitacionGuid ?? null,
-            habitacionGuid: roomOptions[0]?.habitacionGuid ?? null,
-            tarifaGuid: roomOptions[0]?.tarifaGuid ?? null,
+            precioPorNoche: roomOptionsDisponibles[0]?.precioPorNoche ?? propiedad.precioDesde ?? 0,
+            disponiblesEnRango: roomOptionsDisponibles[0]?.disponiblesEnRango ?? habitacionesDisponibles,
+            tipoHabitacionGuid: roomOptionsDisponibles[0]?.tipoHabitacionGuid ?? null,
+            habitacionGuid: roomOptionsDisponibles[0]?.habitacionGuid ?? null,
+            tarifaGuid: roomOptionsDisponibles[0]?.tarifaGuid ?? null,
           }
         : null);
 
@@ -304,9 +316,12 @@ export default function AccommodationDetailPage() {
   };
 
   const roomOptions = normalizeRoomOptions(propiedad);
+  const roomOptionsDisponibles = roomOptions.filter(
+    (room) => Number(room.disponiblesEnRango ?? 1) > 0
+  );
   const habitacionesDisponibles = typeof propiedad?.habitacionesDisponibles === 'number'
     ? propiedad.habitacionesDisponibles
-    : roomOptions.length;
+    : roomOptionsDisponibles.length;
   const hayUnidadesDisponibles = habitacionesDisponibles > 0;
 
   return (
@@ -352,10 +367,12 @@ export default function AccommodationDetailPage() {
                     {habitacionesDisponibles} habitaciones disponibles
                   </div>
                 ) : roomOptions.length > 0 ? (
-                  roomOptions.map((hab) => (
+                  roomOptions.map((hab) => {
+                    const disponible = Number(hab.disponiblesEnRango ?? 1) > 0;
+                    return (
                     <div
                       key={hab.id}
-                      className={styles.roomCard}
+                      className={`${styles.roomCard} ${!disponible ? styles.roomCardUnavailable : ''}`}
                       style={{
                         borderColor:
                           habitacionSeleccionada?.id === hab.id ? '#7c83fd' : '#eee',
@@ -376,6 +393,11 @@ export default function AccommodationDetailPage() {
                         <p>{hab.tipoCama}</p>
                         {hab.descripcion && <p>{hab.descripcion}</p>}
                         <p>Capacidad: {hab.capacidad}</p>
+                        <p>
+                          {disponible
+                            ? `${hab.disponiblesEnRango} disponibles en tus fechas`
+                            : 'Sin disponibilidad en tus fechas'}
+                        </p>
                       </div>
                       <div className={styles.roomPrice}>
                         <strong>{hab.precioPorNoche}</strong>
@@ -383,13 +405,15 @@ export default function AccommodationDetailPage() {
                         <button
                           type="button"
                           className={styles.selectRoomBtn}
+                          disabled={!disponible}
                           onClick={() => handleSeleccionarHabitacion(hab)}
                         >
-                          Seleccionar
+                          {disponible ? 'Seleccionar' : 'No disponible'}
                         </button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className={styles.noSelection}>
                     Contacta con el hotel para ver habitaciones disponibles
