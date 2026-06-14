@@ -46,6 +46,23 @@ const buildSearchQuery = (search) => {
 const DUPLICATE_SEARCH_WINDOW_MS = 2500;
 const RATE_LIMIT_COOLDOWN_MS = 30000;
 
+const getRateLimitCooldownMs = (error) => {
+  const retryAfter = error?.response?.headers?.['retry-after'];
+  if (!retryAfter) return RATE_LIMIT_COOLDOWN_MS;
+
+  const retryAfterSeconds = Number(retryAfter);
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  const retryAfterDate = Date.parse(retryAfter);
+  if (Number.isFinite(retryAfterDate)) {
+    return Math.max(retryAfterDate - Date.now(), RATE_LIMIT_COOLDOWN_MS);
+  }
+
+  return RATE_LIMIT_COOLDOWN_MS;
+};
+
 const buildSearchKey = (payload) =>
   JSON.stringify({
     destino: String(payload.destino ?? '').trim().toLowerCase(),
@@ -199,7 +216,9 @@ export default function SearchPage() {
 
     if (rateLimitedUntilRef.current > now) {
       const seconds = Math.ceil((rateLimitedUntilRef.current - now) / 1000);
-      setError(`Demasiadas búsquedas seguidas. Intenta nuevamente en ${seconds} segundos.`);
+      setError(
+        `El servidor está limitando temporalmente las búsquedas. Intenta nuevamente en ${seconds} segundos.`
+      );
       return;
     }
 
@@ -272,14 +291,22 @@ export default function SearchPage() {
       setBuscado(true);
     } catch (err) {
       if (err?.response?.status === 429) {
-        rateLimitedUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-        setError('Demasiadas búsquedas seguidas. Espera unos segundos e intenta nuevamente.');
+        const cooldownMs = getRateLimitCooldownMs(err);
+        const seconds = Math.ceil(cooldownMs / 1000);
+        rateLimitedUntilRef.current = Date.now() + cooldownMs;
+        setError(
+          `El servidor está limitando temporalmente las búsquedas. Espera ${seconds} segundos e intenta nuevamente.`
+        );
+        if (resultados.length === 0) {
+          setBuscado(false);
+          setTotalResultados(0);
+        }
       } else {
         setError(err?.response?.data?.message || 'Error al buscar propiedades');
+        setResultados([]);
+        setTotalResultados(0);
+        setBuscado(true);
       }
-      setResultados([]);
-      setTotalResultados(0);
-      setBuscado(true);
     } finally {
       searchInFlightRef.current = false;
       setLoading(false);
