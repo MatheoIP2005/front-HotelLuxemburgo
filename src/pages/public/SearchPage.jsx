@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAccommodation, searchAccommodations } from '../../services/accommodations.service';
+import { searchAccommodations } from '../../services/accommodations.service';
 import useBooking from '../../hooks/useBooking';
 import MinimalDateInput from '../../components/public/MinimalDateInput';
 import Navbar from '../../components/public/Navbar';
@@ -42,6 +42,19 @@ const buildSearchQuery = (search) => {
 
   return params.toString();
 };
+
+const DUPLICATE_SEARCH_WINDOW_MS = 2500;
+const RATE_LIMIT_COOLDOWN_MS = 30000;
+
+const buildSearchKey = (payload) =>
+  JSON.stringify({
+    destino: String(payload.destino ?? '').trim().toLowerCase(),
+    fechaInicio: payload.fechaInicio,
+    fechaFin: payload.fechaFin,
+    numAdultos: payload.numAdultos,
+    numHabitaciones: payload.numHabitaciones,
+    numNinos: payload.numNinos ?? '',
+  });
 
 const getImageUrlFromRecord = (record, directKeys = []) => {
   for (const key of directKeys) {
@@ -172,9 +185,24 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [buscado, setBuscado] = useState(false);
+  const searchInFlightRef = useRef(false);
+  const lastSearchRef = useRef({ key: '', at: 0 });
+  const rateLimitedUntilRef = useRef(0);
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    const now = Date.now();
+
+    if (searchInFlightRef.current || loading) {
+      return;
+    }
+
+    if (rateLimitedUntilRef.current > now) {
+      const seconds = Math.ceil((rateLimitedUntilRef.current - now) / 1000);
+      setError(`Demasiadas búsquedas seguidas. Intenta nuevamente en ${seconds} segundos.`);
+      return;
+    }
+
     if (!search.fechaInicio || !search.fechaFin) {
       setError('Selecciona fecha de entrada y salida.');
       setResultados([]);
@@ -216,47 +244,44 @@ export default function SearchPage() {
     }
 
     setLoading(true);
+    searchInFlightRef.current = true;
     setError(null);
 
+    const searchPayload = {
+      ...search,
+      numNinos: search.numNinos === '' ? undefined : search.numNinos,
+    };
+    const searchKey = buildSearchKey(searchPayload);
+
+    if (
+      lastSearchRef.current.key === searchKey &&
+      now - lastSearchRef.current.at < DUPLICATE_SEARCH_WINDOW_MS
+    ) {
+      searchInFlightRef.current = false;
+      setLoading(false);
+      return;
+    }
+
+    lastSearchRef.current = { key: searchKey, at: now };
+
     try {
-      const response = await searchAccommodations({
-        ...search,
-        numNinos: search.numNinos === '' ? undefined : search.numNinos,
-      });
+      const response = await searchAccommodations(searchPayload);
       const items = Array.isArray(response?.items) ? response.items : [];
-      const enrichedResults = await Promise.all(
-        items.map(async (item) => {
-          const accommodationId = item.sucursalGuid ?? item.id ?? item.slug;
-          if (!accommodationId) return item;
-
-          try {
-            const detail = await getAccommodation(accommodationId, {
-              fechaInicio: search.fechaInicio,
-              fechaFin: search.fechaFin,
-            });
-
-            return {
-              ...item,
-              imagenSucursalResuelta:
-                trimText(detail?.imagenPrincipalUrl) ||
-                getFirstStringImage(detail?.imagenes) ||
-                '',
-            };
-          } catch {
-            return item;
-          }
-        })
-      );
-
-      setResultados(enrichedResults);
+      setResultados(items);
       setTotalResultados(Number(response?.totalResultados ?? response?.total ?? items.length));
       setBuscado(true);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Error al buscar propiedades');
+      if (err?.response?.status === 429) {
+        rateLimitedUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        setError('Demasiadas búsquedas seguidas. Espera unos segundos e intenta nuevamente.');
+      } else {
+        setError(err?.response?.data?.message || 'Error al buscar propiedades');
+      }
       setResultados([]);
       setTotalResultados(0);
       setBuscado(true);
     } finally {
+      searchInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -357,8 +382,8 @@ export default function SearchPage() {
             />
           </div>
 
-          <button type="submit" className={styles.searchBtn}>
-            Buscar
+          <button type="submit" className={styles.searchBtn} disabled={loading}>
+            {loading ? 'Buscando...' : 'Buscar'}
           </button>
         </form>
       </div>

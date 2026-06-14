@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,17 +12,15 @@ import {
   View,
 } from "react-native";
 import MinimalDateInput from "../components/public/MinimalDateInput";
-import { getAccommodation, searchAccommodations } from "../services/publicServices";
+import { searchAccommodations } from "../services/publicServices";
 import { useBooking } from "../context/BookingContext";
 import {
   addDaysToIsoDate,
   formatLocation,
   formatMoney,
-  getFirstStringImage,
   getOptionalChildrenCount,
   getTodayIsoDate,
   resolvePropertyImageUrl,
-  trimText,
 } from "../utils/booking";
 import { API_CONFIG_WARNING, isApiConfigured } from "../config/env";
 import {
@@ -37,6 +35,19 @@ const resetSearchResults = (setItems, setTotal, setSearched) => {
   setTotal(0);
   setSearched(true);
 };
+
+const DUPLICATE_SEARCH_WINDOW_MS = 2500;
+const RATE_LIMIT_COOLDOWN_MS = 30000;
+
+const buildSearchKey = (payload) =>
+  JSON.stringify({
+    destino: String(payload.destino ?? "").trim().toLowerCase(),
+    fechaInicio: payload.fechaInicio,
+    fechaFin: payload.fechaFin,
+    numAdultos: payload.numAdultos,
+    numHabitaciones: payload.numHabitaciones,
+    numNinos: payload.numNinos ?? "",
+  });
 
 export default function SearchScreen({ navigation }) {
   const todayIso = useMemo(() => getTodayIsoDate(), []);
@@ -54,6 +65,9 @@ export default function SearchScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
+  const searchInFlightRef = useRef(false);
+  const lastSearchRef = useRef({ key: "", at: 0 });
+  const rateLimitedUntilRef = useRef(0);
 
   const salidaMinDate = form.fechaInicio
     ? addDaysToIsoDate(form.fechaInicio, 1)
@@ -86,6 +100,18 @@ export default function SearchScreen({ navigation }) {
   };
 
   const handleSearch = async () => {
+    const now = Date.now();
+
+    if (searchInFlightRef.current || loading) {
+      return;
+    }
+
+    if (rateLimitedUntilRef.current > now) {
+      const seconds = Math.ceil((rateLimitedUntilRef.current - now) / 1000);
+      setError(`Demasiadas búsquedas seguidas. Intenta nuevamente en ${seconds} segundos.`);
+      return;
+    }
+
     if (!isApiConfigured) {
       setError(API_CONFIG_WARNING);
       resetSearchResults(setItems, setTotal, setSearched);
@@ -139,55 +165,45 @@ export default function SearchScreen({ navigation }) {
     }
 
     setLoading(true);
+    searchInFlightRef.current = true;
     setError("");
     setSearched(true);
 
+    const searchPayload = {
+      ...form,
+      numAdultos: adultos,
+      numHabitaciones: habitaciones,
+      numNinos: form.numNinos === "" ? undefined : form.numNinos,
+    };
+    const searchKey = buildSearchKey(searchPayload);
+
+    if (
+      lastSearchRef.current.key === searchKey &&
+      now - lastSearchRef.current.at < DUPLICATE_SEARCH_WINDOW_MS
+    ) {
+      searchInFlightRef.current = false;
+      setLoading(false);
+      return;
+    }
+
+    lastSearchRef.current = { key: searchKey, at: now };
+
     try {
-      const response = await searchAccommodations({
-        ...form,
-        numAdultos: adultos,
-        numHabitaciones: habitaciones,
-        numNinos: form.numNinos === "" ? undefined : form.numNinos,
-      });
+      const response = await searchAccommodations(searchPayload);
       const items = Array.isArray(response?.items) ? response.items : [];
-      const enrichedResults = await Promise.all(
-        items.map(async (item) => {
-          const accommodationId = item.sucursalGuid ?? item.id ?? item.slug;
-          if (!accommodationId) return item;
-
-          try {
-            const detail = await getAccommodation(accommodationId, {
-              fechaInicio: form.fechaInicio,
-              fechaFin: form.fechaFin,
-            });
-
-            return {
-              ...item,
-              imagenSucursalResuelta:
-                trimText(detail?.imagenPrincipalUrl) ||
-                getFirstStringImage(detail?.imagenes) ||
-                "",
-            };
-          } catch {
-            return item;
-          }
-        })
-      );
-      setItems(enrichedResults);
+      setItems(items);
       setTotal(Number(response?.totalResultados ?? response?.total ?? items.length));
     } catch (err) {
-      console.error("Search accommodations failed", {
-        baseUrl: err?.config?.baseURL,
-        url: err?.config?.url,
-        params: err?.config?.params,
-        status: err?.response?.status,
-        data: err?.response?.data,
-        message: err?.message,
-      });
       setItems([]);
       setTotal(0);
-      setError(err?.response?.data?.message || "No se pudo buscar alojamientos.");
+      if (err?.response?.status === 429) {
+        rateLimitedUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        setError("Demasiadas búsquedas seguidas. Espera unos segundos e intenta nuevamente.");
+      } else {
+        setError(err?.response?.data?.message || "No se pudo buscar alojamientos.");
+      }
     } finally {
+      searchInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -294,8 +310,14 @@ export default function SearchScreen({ navigation }) {
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <Pressable style={styles.primaryButton} onPress={handleSearch}>
-                <Text style={styles.primaryButtonText}>Buscar</Text>
+              <Pressable
+                style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+                onPress={handleSearch}
+                disabled={loading}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {loading ? "Buscando..." : "Buscar"}
+                </Text>
               </Pressable>
             </View>
 
@@ -427,6 +449,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primary,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.65,
   },
   primaryButtonText: {
     color: colors.onPrimary,
