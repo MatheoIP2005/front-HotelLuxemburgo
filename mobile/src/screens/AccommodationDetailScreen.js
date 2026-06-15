@@ -21,7 +21,7 @@ import { colors, shadow } from "../styles/theme";
 
 export default function AccommodationDetailScreen({ navigation, route }) {
   const { id, fechaInicio, fechaFin } = route.params ?? {};
-  const { setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
+  const { bookingData, setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
   const [propiedad, setPropiedadState] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,7 @@ export default function AccommodationDetailScreen({ navigation, route }) {
       setLoading(true);
       setError("");
       setSinDisponibilidad(false);
+      setSelectedRoom(null);
 
       try {
         const response =
@@ -66,24 +67,48 @@ export default function AccommodationDetailScreen({ navigation, route }) {
   }, [id, fechaInicio, fechaFin]);
 
   const roomOptions = useMemo(() => normalizeRoomOptions(propiedad), [propiedad]);
-  const habitacionesDisponibles = getHabitacionesDisponiblesCount(propiedad, roomOptions);
+  const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
+  const roomOptionsDisponibles = useMemo(
+    () =>
+      roomOptions.filter(
+        (room) => Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
+      ),
+    [roomOptions, habitacionesSolicitadas]
+  );
+  const habitacionesDisponibles =
+    roomOptions.length > 0
+      ? roomOptionsDisponibles.length
+      : getHabitacionesDisponiblesCount(propiedad, roomOptions);
   const hayUnidadesDisponibles = habitacionesDisponibles > 0;
   const imageUrl = resolvePropertyImageUrl(propiedad);
 
   const roomForBooking = useMemo(() => {
-    if (selectedRoom) return selectedRoom;
+    if (
+      selectedRoom &&
+      Number(selectedRoom.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
+    ) {
+      return selectedRoom;
+    }
 
     if (!hayUnidadesDisponibles || !propiedad) return null;
 
     return {
       id: null,
       nombre: "Habitación por asignar",
-      precioPorNoche: propiedad.precioDesde || 0,
-      tipoHabitacionGuid: roomOptions[0]?.tipoHabitacionGuid ?? null,
-      habitacionGuid: roomOptions[0]?.habitacionGuid ?? null,
-      tarifaGuid: roomOptions[0]?.tarifaGuid ?? null,
+      precioPorNoche: roomOptionsDisponibles[0]?.precioPorNoche ?? propiedad.precioDesde ?? 0,
+      disponiblesEnRango: roomOptionsDisponibles[0]?.disponiblesEnRango ?? habitacionesDisponibles,
+      tipoHabitacionGuid: roomOptionsDisponibles[0]?.tipoHabitacionGuid ?? null,
+      habitacionGuid: roomOptionsDisponibles[0]?.habitacionGuid ?? null,
+      tarifaGuid: roomOptionsDisponibles[0]?.tarifaGuid ?? null,
     };
-  }, [selectedRoom, hayUnidadesDisponibles, propiedad, roomOptions]);
+  }, [
+    selectedRoom,
+    hayUnidadesDisponibles,
+    propiedad,
+    roomOptionsDisponibles,
+    habitacionesDisponibles,
+    habitacionesSolicitadas,
+  ]);
 
   const canReserve = Boolean(roomForBooking);
 
@@ -157,11 +182,20 @@ export default function AccommodationDetailScreen({ navigation, route }) {
       ) : roomOptions.length > 0 ? (
         roomOptions.map((room) => {
           const isSelected = selectedRoom?.id === room.id;
+          const disponible =
+            Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas;
           return (
             <Pressable
               key={String(room.id)}
-              style={[styles.roomCard, isSelected && styles.roomCardSelected]}
-              onPress={() => setSelectedRoom(room)}
+              style={[
+                styles.roomCard,
+                !disponible && styles.roomCardUnavailable,
+                isSelected && styles.roomCardSelected,
+              ]}
+              onPress={() => {
+                if (disponible) setSelectedRoom(room);
+              }}
+              disabled={!disponible}
             >
               {room.imagenUrl ? (
                 <Image source={{ uri: room.imagenUrl }} style={styles.roomImage} />
@@ -174,6 +208,11 @@ export default function AccommodationDetailScreen({ navigation, route }) {
                 <Text style={styles.roomTitle}>{room.nombre}</Text>
                 <Text style={styles.muted}>Cama: {room.tipoCama}</Text>
                 <Text style={styles.muted}>Capacidad: {room.capacidad}</Text>
+                <Text style={disponible ? styles.muted : styles.unavailableText}>
+                  {disponible
+                    ? `${room.disponiblesEnRango} disponibles en tus fechas`
+                    : "Sin disponibilidad en tus fechas"}
+                </Text>
                 {room.descripcion ? (
                   <Text style={styles.description}>{room.descripcion}</Text>
                 ) : null}
@@ -315,6 +354,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadow,
   },
+  roomCardUnavailable: {
+    opacity: 0.62,
+    backgroundColor: colors.badgeBg,
+  },
   roomCardSelected: {
     borderColor: colors.primary,
     borderWidth: 2,
@@ -339,6 +382,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 17,
     fontWeight: "800",
+  },
+  unavailableText: {
+    color: colors.danger,
+    fontWeight: "700",
   },
   price: {
     color: colors.primaryDark,

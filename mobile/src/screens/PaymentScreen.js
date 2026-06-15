@@ -83,6 +83,8 @@ export default function PaymentScreen({ navigation }) {
     const nombreTitular = form.nombre_titular.trim();
     const fechaVencimiento = form.fecha_vencimiento.trim();
     const tipoHabitacionGuid = bookingData.habitacion?.tipoHabitacionGuid;
+    const disponiblesEnRango = Number(bookingData.habitacion?.disponiblesEnRango ?? 1);
+    const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
 
     if (!nombreTitular) {
       setError("El nombre del titular es obligatorio.");
@@ -111,6 +113,11 @@ export default function PaymentScreen({ navigation }) {
 
     if (!tipoHabitacionGuid) {
       setError("No se pudo resolver el tipo de habitación para crear la reserva.");
+      return;
+    }
+
+    if (disponiblesEnRango < habitacionesSolicitadas) {
+      setError("La habitaciÃ³n seleccionada ya no tiene disponibilidad suficiente para esas fechas.");
       return;
     }
 
@@ -146,6 +153,7 @@ export default function PaymentScreen({ navigation }) {
             tarifaGuid: bookingData.habitacion?.tarifaGuid ?? null,
             precioNocheAplicado:
               bookingData.habitacion?.precioPorNoche ?? bookingData.precioTotal ?? null,
+            disponiblesEnRango: bookingData.habitacion?.disponiblesEnRango ?? null,
             numHabitaciones: bookingData.numHabitaciones || 1,
             numAdultos: bookingData.numAdultos || 1,
             numNinos: bookingData.numNinos || 0,

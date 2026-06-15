@@ -69,6 +69,6 @@ export const deleteTipoHabitacion = async (id) => {
 };
 
 export const inhabilitarTipoHabitacion = async (id) => {
-  const response = await internalApi.delete(`/tipos-habitacion/${id}`);
+  const response = await internalApi.patch(`/tipos-habitacion/${id}/inhabilitar`);
   return extractApiPayload(response);
 };

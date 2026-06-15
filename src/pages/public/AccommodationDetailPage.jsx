@@ -234,7 +234,7 @@ export default function AccommodationDetailPage() {
   const [searchParams] = useSearchParams();
   const fechaEntrada = searchParams.get('fechaInicio') || searchParams.get('fecha_entrada');
   const fechaSalida = searchParams.get('fechaFin') || searchParams.get('fecha_salida');
-  const { setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
+  const { bookingData, setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
 
   const [propiedad, setPropiedadState] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,6 +247,7 @@ export default function AccommodationDetailPage() {
       setLoading(true);
       setError(null);
       setSinDisponibilidad(false);
+      setHabitacionSeleccionada(null);
       try {
         const response =
           fechaEntrada && fechaSalida
@@ -281,17 +282,20 @@ export default function AccommodationDetailPage() {
     if (!propiedad) return;
 
     const roomOptions = normalizeRoomOptions(propiedad);
+    const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
     const roomOptionsDisponibles = roomOptions.filter(
-      (room) => Number(room.disponiblesEnRango ?? 1) > 0
+      (room) => Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
     );
     const habitacionesDisponibles =
-      typeof propiedad.habitacionesDisponibles === 'number'
-        ? propiedad.habitacionesDisponibles
-        : roomOptionsDisponibles.length;
+      roomOptions.length > 0
+        ? roomOptionsDisponibles.length
+        : typeof propiedad.habitacionesDisponibles === 'number'
+          ? propiedad.habitacionesDisponibles
+          : 0;
     const hayUnidadesDisponibles = habitacionesDisponibles > 0;
     const seleccionDisponible =
       habitacionSeleccionada &&
-      Number(habitacionSeleccionada.disponiblesEnRango ?? 1) > 0;
+      Number(habitacionSeleccionada.disponiblesEnRango ?? 1) >= habitacionesSolicitadas;
 
     const habitacionParaReserva =
       (seleccionDisponible ? habitacionSeleccionada : null) ||
@@ -316,12 +320,15 @@ export default function AccommodationDetailPage() {
   };
 
   const roomOptions = normalizeRoomOptions(propiedad);
+  const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
   const roomOptionsDisponibles = roomOptions.filter(
-    (room) => Number(room.disponiblesEnRango ?? 1) > 0
+    (room) => Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
   );
-  const habitacionesDisponibles = typeof propiedad?.habitacionesDisponibles === 'number'
-    ? propiedad.habitacionesDisponibles
-    : roomOptionsDisponibles.length;
+  const habitacionesDisponibles = roomOptions.length > 0
+    ? roomOptionsDisponibles.length
+    : typeof propiedad?.habitacionesDisponibles === 'number'
+      ? propiedad.habitacionesDisponibles
+      : 0;
   const hayUnidadesDisponibles = habitacionesDisponibles > 0;
 
   return (
@@ -368,7 +375,8 @@ export default function AccommodationDetailPage() {
                   </div>
                 ) : roomOptions.length > 0 ? (
                   roomOptions.map((hab) => {
-                    const disponible = Number(hab.disponiblesEnRango ?? 1) > 0;
+                    const disponibles = Number(hab.disponiblesEnRango ?? 1);
+                    const disponible = disponibles >= habitacionesSolicitadas;
                     return (
                     <div
                       key={hab.id}

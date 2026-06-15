@@ -30,6 +30,24 @@ const toReservaHabitacionPayload = (item = {}, reserva = {}) => ({
     item.precioNocheAplicado == null ? undefined : Number(item.precioNocheAplicado),
 });
 
+const validateKnownAvailability = (data = {}) => {
+  const habitaciones = Array.isArray(data.habitaciones) ? data.habitaciones : [];
+
+  for (const item of habitaciones) {
+    const solicitadas = Number(item.numHabitaciones ?? data.numHabitaciones ?? 1);
+    const disponibles =
+      item.disponiblesEnRango === null || item.disponiblesEnRango === undefined
+        ? null
+        : Number(item.disponiblesEnRango);
+
+    if (disponibles !== null && Number.isFinite(disponibles) && disponibles < solicitadas) {
+      throw new Error(
+        "La habitacion seleccionada ya no tiene disponibilidad suficiente para esas fechas."
+      );
+    }
+  }
+};
+
 const toPublicReservaPayload = (data = {}) => ({
   cliente: toClientePayload(data.cliente),
   sucursalGuid: data.sucursalGuid ?? "",
@@ -45,6 +63,7 @@ const toPublicReservaPayload = (data = {}) => ({
 
 export const createPublicReservasService = (publicApi) => ({
   createPublicReserva: async (data) => {
+    validateKnownAvailability(data);
     const response = await publicApi.post(
       "/accommodations/reservas",
       toPublicReservaPayload(data)

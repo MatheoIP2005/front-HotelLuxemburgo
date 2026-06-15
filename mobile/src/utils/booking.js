@@ -253,7 +253,12 @@ export const normalizeRoomOptions = (propiedad) => {
         capacidad:
           tipo.capacidadTotal ?? tipo.capacidadHabitacion ?? tipo.capacidad ?? "N/A",
         precioPorNoche:
-          tarifaRelacionada?.precioPorNoche ?? tipo.precioDesde ?? propiedad?.precioDesde ?? 0,
+          tarifaRelacionada?.precioPorNoche ??
+          tipo.precioDesde ??
+          tipo.precioBase ??
+          propiedad?.precioDesde ??
+          0,
+        disponiblesEnRango: Number(tipo.disponiblesEnRango ?? tipo.disponibles ?? 0),
         tipoHabitacionGuid: tipo.tipoHabitacionGuid ?? null,
         habitacionGuid: tipo.habitacionGuid ?? null,
         tarifaGuid: tarifaRelacionada?.tarifaGuid ?? tipo.tarifaGuid ?? null,
@@ -275,7 +280,12 @@ export const normalizeRoomOptions = (propiedad) => {
         habitacion.capacidad ??
         "N/A",
       precioPorNoche:
-        habitacion.precioPorNoche ?? habitacion.precioDesde ?? propiedad?.precioDesde ?? 0,
+        habitacion.precioPorNoche ??
+        habitacion.precioDesde ??
+        habitacion.precioBase ??
+        propiedad?.precioDesde ??
+        0,
+      disponiblesEnRango: Number(habitacion.disponiblesEnRango ?? habitacion.disponibles ?? 1),
       tipoHabitacionGuid: habitacion.tipoHabitacionGuid ?? null,
       habitacionGuid: habitacion.habitacionGuid ?? null,
       tarifaGuid: habitacion.tarifaGuid ?? tarifasActivas[0]?.tarifaGuid ?? null,
@@ -288,9 +298,13 @@ export const normalizeRoomOptions = (propiedad) => {
 };
 
 export const getHabitacionesDisponiblesCount = (propiedad, roomOptions = []) => {
+  if (roomOptions.length > 0) {
+    return roomOptions.filter((room) => Number(room.disponiblesEnRango ?? 1) > 0).length;
+  }
+
   if (typeof propiedad?.habitacionesDisponibles === "number") {
     return propiedad.habitacionesDisponibles;
   }
 
-  return roomOptions.length;
+  return 0;
 };
