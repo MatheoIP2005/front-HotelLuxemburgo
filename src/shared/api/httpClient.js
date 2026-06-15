@@ -1,9 +1,60 @@
 import axios from "axios";
 
-export const createHttpClient = ({ baseURL } = {}) =>
-  axios.create({
+const DEFAULT_RATE_LIMIT_RETRY_MS = 30000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getRateLimitRetryDelayMs = (headers = {}) => {
+  const retryAfter = headers["retry-after"];
+  if (!retryAfter) return DEFAULT_RATE_LIMIT_RETRY_MS;
+
+  const retryAfterSeconds = Number(retryAfter);
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  const retryAfterDate = Date.parse(retryAfter);
+  if (Number.isFinite(retryAfterDate)) {
+    return Math.max(retryAfterDate - Date.now(), DEFAULT_RATE_LIMIT_RETRY_MS);
+  }
+
+  return DEFAULT_RATE_LIMIT_RETRY_MS;
+};
+
+const shouldRetryRateLimitedRequest = (error) => {
+  const config = error?.config;
+  const method = String(config?.method ?? "get").toLowerCase();
+  const retryCount = Number(config?._rateLimitRetryCount ?? 0);
+
+  return (
+    error?.response?.status === 429 &&
+    method === "get" &&
+    config?.retryOnRateLimit !== false &&
+    retryCount < 1
+  );
+};
+
+export const createHttpClient = ({ baseURL } = {}) => {
+  const client = axios.create({
     baseURL,
   });
+
+  client.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      if (!shouldRetryRateLimitedRequest(error)) {
+        return Promise.reject(error);
+      }
+
+      const config = error.config;
+      config._rateLimitRetryCount = Number(config._rateLimitRetryCount ?? 0) + 1;
+      await sleep(getRateLimitRetryDelayMs(error.response?.headers));
+      return client.request(config);
+    }
+  );
+
+  return client;
+};
 
 export const createAuthenticatedHttpClient = ({
   baseURL,
