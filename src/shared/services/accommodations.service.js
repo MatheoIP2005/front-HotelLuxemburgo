@@ -32,6 +32,7 @@ export const createAccommodationsService = (publicApi) => ({
   searchAccommodations: async (params) => {
     const response = await publicApi.get("/accommodations/search", {
       params: toAccommodationParams(params),
+      retryOnRateLimit: false,
     });
     return extractApiPayload(response);
   },

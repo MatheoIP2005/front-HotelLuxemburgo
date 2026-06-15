@@ -44,7 +44,11 @@ const buildSearchQuery = (search) => {
 };
 
 const DUPLICATE_SEARCH_WINDOW_MS = 2500;
+const SEARCH_REQUEST_COOLDOWN_MS = 30000;
 const RATE_LIMIT_COOLDOWN_MS = 30000;
+
+const getCooldownSeconds = (until, now = Date.now()) =>
+  Math.max(1, Math.ceil((until - now) / 1000));
 
 const getRateLimitCooldownMs = (error) => {
   const retryAfter = error?.response?.headers?.['retry-after'];
@@ -195,6 +199,7 @@ export default function SearchPage() {
   const [buscado, setBuscado] = useState(false);
   const searchInFlightRef = useRef(false);
   const lastSearchRef = useRef({ key: '', at: 0 });
+  const requestCooldownUntilRef = useRef(0);
   const rateLimitedUntilRef = useRef(0);
 
   const handleSearch = async (e) => {
@@ -206,10 +211,16 @@ export default function SearchPage() {
     }
 
     if (rateLimitedUntilRef.current > now) {
-      const seconds = Math.ceil((rateLimitedUntilRef.current - now) / 1000);
+      const seconds = getCooldownSeconds(rateLimitedUntilRef.current, now);
       setError(
         `El servidor está limitando temporalmente las búsquedas. Intenta nuevamente en ${seconds} segundos.`
       );
+      return;
+    }
+
+    if (requestCooldownUntilRef.current > now) {
+      const seconds = getCooldownSeconds(requestCooldownUntilRef.current, now);
+      setError(`Espera ${seconds} segundos antes de lanzar otra busqueda.`);
       return;
     }
 
@@ -273,6 +284,7 @@ export default function SearchPage() {
     }
 
     lastSearchRef.current = { key: searchKey, at: now };
+    requestCooldownUntilRef.current = Date.now() + SEARCH_REQUEST_COOLDOWN_MS;
 
     try {
       const response = await searchAccommodations(searchPayload);
