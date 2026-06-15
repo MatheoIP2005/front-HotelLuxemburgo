@@ -1,5 +1,7 @@
 import { extractApiPayload } from "../utils/api";
 
+const inFlightPublicGetRequests = new Map();
+
 const toOptionalParam = (value) => {
   if (value === null || value === undefined) return undefined;
   if (typeof value === "string") {
@@ -28,9 +30,42 @@ const toAccommodationParams = (params = {}) => ({
   num_habitaciones: toOptionalParam(params.numHabitaciones ?? params.num_habitaciones),
 });
 
+const toStableParams = (params = {}) =>
+  Object.keys(params)
+    .sort()
+    .reduce((stableParams, key) => {
+      if (params[key] !== undefined) {
+        stableParams[key] = params[key];
+      }
+      return stableParams;
+    }, {});
+
+const buildPublicGetRequestKey = (publicApi, path, params) =>
+  JSON.stringify({
+    baseURL: publicApi?.defaults?.baseURL ?? "",
+    path,
+    params: toStableParams(params),
+  });
+
+const dedupePublicGet = (publicApi, path, config = {}) => {
+  const key = buildPublicGetRequestKey(publicApi, path, config.params);
+  const inFlightRequest = inFlightPublicGetRequests.get(key);
+
+  if (inFlightRequest) {
+    return inFlightRequest;
+  }
+
+  const request = publicApi.get(path, config).finally(() => {
+    inFlightPublicGetRequests.delete(key);
+  });
+
+  inFlightPublicGetRequests.set(key, request);
+  return request;
+};
+
 export const createAccommodationsService = (publicApi) => ({
   searchAccommodations: async (params) => {
-    const response = await publicApi.get("/accommodations/search", {
+    const response = await dedupePublicGet(publicApi, "/accommodations/search", {
       params: toAccommodationParams(params),
       retryOnRateLimit: false,
     });
@@ -38,19 +73,26 @@ export const createAccommodationsService = (publicApi) => ({
   },
 
   getAccommodation: async (id, params) => {
-    const response = await publicApi.get(`/accommodations/${id}`, {
+    const response = await dedupePublicGet(publicApi, `/accommodations/${id}`, {
       params: toAccommodationParams(params),
+      retryOnRateLimit: false,
     });
     return extractApiPayload(response);
   },
 
   getCategories: async (params) => {
-    const response = await publicApi.get("/accommodations/categories", { params });
+    const response = await dedupePublicGet(publicApi, "/accommodations/categories", {
+      params,
+      retryOnRateLimit: false,
+    });
     return extractApiPayload(response);
   },
 
   getReviews: async (id, params) => {
-    const response = await publicApi.get(`/accommodations/${id}/reviews`, { params });
+    const response = await dedupePublicGet(publicApi, `/accommodations/${id}/reviews`, {
+      params,
+      retryOnRateLimit: false,
+    });
     return extractApiPayload(response);
   },
 });

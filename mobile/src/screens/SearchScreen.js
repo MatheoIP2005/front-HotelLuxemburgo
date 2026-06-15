@@ -263,6 +263,9 @@ export default function SearchScreen({ navigation }) {
       id,
       fechaInicio: form.fechaInicio,
       fechaFin: form.fechaFin,
+      numAdultos: parsePositiveInteger(form.numAdultos) ?? 1,
+      numHabitaciones: parsePositiveInteger(form.numHabitaciones) ?? 1,
+      numNinos: form.numNinos === "" ? undefined : parseNonNegativeInteger(form.numNinos),
     });
   };
 

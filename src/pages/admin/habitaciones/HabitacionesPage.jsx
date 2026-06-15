@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useHabitaciones from "../../../hooks/useHabitaciones";
 import { getSucursales } from "../../../services/sucursales.service";
@@ -54,7 +54,7 @@ export default function HabitacionesPage() {
     return map;
   }, [sucursales]);
 
-  const getSucursalDisplay = (habitacion) => {
+  const getSucursalDisplay = useCallback((habitacion) => {
     const sucursal = sucursalPorGuid.get(String(habitacion?.sucursalGuid ?? ""));
     if (!sucursal) {
       return habitacion?.sucursalGuid
@@ -66,7 +66,7 @@ export default function HabitacionesPage() {
     const codigo = trimText(sucursal.codigoSucursal);
     if (nombre && codigo) return `${nombre} (${codigo})`;
     return nombre || codigo || "Sucursal";
-  };
+  }, [sucursalPorGuid]);
 
   const habitacionesOrdenadas = useMemo(
     () =>
@@ -82,7 +82,7 @@ export default function HabitacionesPage() {
           { numeric: true }
         );
       }),
-    [habitaciones, sucursalPorGuid]
+    [habitaciones, getSucursalDisplay]
   );
 
   const onDelete = async (id) => {

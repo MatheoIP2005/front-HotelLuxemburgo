@@ -234,6 +234,10 @@ export default function AccommodationDetailPage() {
   const [searchParams] = useSearchParams();
   const fechaEntrada = searchParams.get('fechaInicio') || searchParams.get('fecha_entrada');
   const fechaSalida = searchParams.get('fechaFin') || searchParams.get('fecha_salida');
+  const numAdultos = searchParams.get('numAdultos') || searchParams.get('num_adultos');
+  const numNinos = searchParams.get('numNinos') || searchParams.get('num_ninos');
+  const numHabitaciones =
+    searchParams.get('numHabitaciones') || searchParams.get('num_habitaciones');
   const { bookingData, setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
 
   const [propiedad, setPropiedadState] = useState(null);
@@ -254,6 +258,9 @@ export default function AccommodationDetailPage() {
             ? await getAccommodation(id, {
                 fechaInicio: fechaEntrada,
                 fechaFin: fechaSalida,
+                numAdultos,
+                numNinos,
+                numHabitaciones,
               })
             : await getAccommodation(id);
         setPropiedadState(response || null);
@@ -262,6 +269,10 @@ export default function AccommodationDetailPage() {
           setPropiedadState(err?.response?.data?.data ?? err?.response?.data ?? null);
           setSinDisponibilidad(true);
           setError(null);
+        } else if (err?.response?.status === 429) {
+          setError(
+            'El servidor esta limitando temporalmente las consultas. Espera unos segundos e intenta nuevamente.'
+          );
         } else {
           setError(err?.response?.data?.message || 'No se pudo cargar la propiedad');
         }
@@ -271,7 +282,7 @@ export default function AccommodationDetailPage() {
     };
 
     fetchAccommodation();
-  }, [id, fechaEntrada, fechaSalida]);
+  }, [id, fechaEntrada, fechaSalida, numAdultos, numNinos, numHabitaciones]);
 
   const handleSeleccionarHabitacion = (hab) => {
     if (Number(hab?.disponiblesEnRango ?? 1) <= 0) return;

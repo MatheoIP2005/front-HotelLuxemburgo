@@ -22,7 +22,8 @@ import {
 import { colors, shadow } from "../styles/theme";
 
 export default function AccommodationDetailScreen({ navigation, route }) {
-  const { id, fechaInicio, fechaFin } = route.params ?? {};
+  const { id, fechaInicio, fechaFin, numAdultos, numHabitaciones, numNinos } =
+    route.params ?? {};
   const { bookingData, setPropiedad, setHabitacion, setPrecioTotal } = useBooking();
   const [propiedad, setPropiedadState] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -42,7 +43,13 @@ export default function AccommodationDetailScreen({ navigation, route }) {
       try {
         const response =
           fechaInicio && fechaFin
-            ? await getAccommodation(id, { fechaInicio, fechaFin })
+            ? await getAccommodation(id, {
+                fechaInicio,
+                fechaFin,
+                numAdultos,
+                numHabitaciones,
+                numNinos,
+              })
             : await getAccommodation(id);
 
         if (mounted) setPropiedadState(response || null);
@@ -53,6 +60,10 @@ export default function AccommodationDetailScreen({ navigation, route }) {
           setPropiedadState(err?.response?.data?.data ?? err?.response?.data ?? null);
           setSinDisponibilidad(true);
           setError("");
+        } else if (err?.response?.status === 429) {
+          setError(
+            "El servidor esta limitando temporalmente las consultas. Espera unos segundos e intenta nuevamente."
+          );
         } else {
           setError(err?.response?.data?.message || "No se pudo cargar el alojamiento.");
         }
@@ -66,7 +77,7 @@ export default function AccommodationDetailScreen({ navigation, route }) {
     return () => {
       mounted = false;
     };
-  }, [id, fechaInicio, fechaFin]);
+  }, [id, fechaInicio, fechaFin, numAdultos, numHabitaciones, numNinos]);
 
   const roomOptions = useMemo(() => normalizeRoomOptions(propiedad), [propiedad]);
   const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
