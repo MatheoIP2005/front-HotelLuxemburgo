@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAccommodation } from '../../services/accommodations.service';
+import { resolveLocalTipoHabitacionImagePath } from '../../shared/utils/localImages';
 import useBooking from '../../hooks/useBooking';
 import Navbar from '../../components/public/Navbar';
 import styles from './AccommodationDetailPage.module.css';
@@ -154,7 +155,7 @@ const resolveRoomImageUrl = (room, propiedad) => {
   const matchedImage = getImageUrlFromCollection(propertyRoomImages);
   if (matchedImage) return matchedImage;
 
-  return '';
+  return resolveLocalTipoHabitacionImagePath(room);
 };
 
 const formatLocation = (propiedad) =>

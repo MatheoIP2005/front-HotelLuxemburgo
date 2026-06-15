@@ -1,3 +1,13 @@
+import {
+  resolveLocalSucursalImagePath,
+  resolveLocalTipoHabitacionImagePath,
+  toAbsoluteLocalImageUrl,
+} from "../../../src/shared/utils/localImages";
+import { getImagesBaseUrl } from "../config/images";
+
+const resolveLocalImageUrl = (path) =>
+  toAbsoluteLocalImageUrl(path, getImagesBaseUrl());
+
 export const getOptionalChildrenCount = (value) =>
   value === "" || value === null || value === undefined ? 0 : Number(value);
 
@@ -160,6 +170,9 @@ export const resolvePropertyImageUrl = (propiedad) => {
     .find(Boolean);
   if (collection) return collection;
 
+  const localPath = resolveLocalSucursalImagePath(propiedad);
+  if (localPath) return resolveLocalImageUrl(localPath);
+
   return "";
 };
 
@@ -281,6 +294,9 @@ export const resolveRoomImageUrl = (room, propiedad) => {
 
   const matchedImage = getImageUrlFromCollection(propertyRoomImages);
   if (matchedImage) return matchedImage;
+
+  const localPath = resolveLocalTipoHabitacionImagePath(room);
+  if (localPath) return resolveLocalImageUrl(localPath);
 
   return "";
 };

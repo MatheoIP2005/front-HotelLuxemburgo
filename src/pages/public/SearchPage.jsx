@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchAccommodations } from '../../services/accommodations.service';
+import { resolveLocalSucursalImagePath } from '../../shared/utils/localImages';
 import useBooking from '../../hooks/useBooking';
 import MinimalDateInput from '../../components/public/MinimalDateInput';
 import Navbar from '../../components/public/Navbar';
@@ -173,7 +174,7 @@ const resolvePropertyImageUrl = (propiedad) => {
     .find(Boolean);
   if (collection) return collection;
 
-  return '';
+  return resolveLocalSucursalImagePath(propiedad);
 };
 
 const formatLocation = (propiedad) =>
