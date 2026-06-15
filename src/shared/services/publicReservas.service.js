@@ -66,7 +66,12 @@ export const createPublicReservasService = (publicApi) => ({
     validateKnownAvailability(data);
     const response = await publicApi.post(
       "/accommodations/reservas",
-      toPublicReservaPayload(data)
+      toPublicReservaPayload(data),
+      {
+        retryOnRateLimit: true,
+        retryRateLimitMethods: ["post"],
+        rateLimitMaxRetries: 1,
+      }
     );
     return extractApiPayload(response);
   },

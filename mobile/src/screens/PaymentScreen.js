@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { createPublicReserva } from "../services/publicServices";
-import { extractApiErrorMessage } from "../../../src/shared/utils/api";
+import { extractApiErrorMessage, isRateLimitError } from "../../../src/shared/utils/api";
 import { useBooking } from "../context/BookingContext";
 import { formatMoney } from "../utils/booking";
 import {
@@ -30,6 +30,8 @@ const PROCESSING_LABELS = {
   success: "Pago simulado aprobado.",
   error: "No se pudo crear la reserva.",
 };
+const RATE_LIMIT_RESERVA_MESSAGE =
+  "El servidor de reservas esta limitando solicitudes. Espera 30 segundos e intenta nuevamente.";
 
 export default function PaymentScreen({ navigation }) {
   const { bookingData, setPublicReservation, setSimulatedPayment } = useBooking();
@@ -184,7 +186,11 @@ export default function PaymentScreen({ navigation }) {
     } catch (err) {
       setProcessingState("error");
       setSimulationInfo(null);
-      setError(extractApiErrorMessage(err, "No se pudo crear la reserva."));
+      setError(
+        isRateLimitError(err)
+          ? RATE_LIMIT_RESERVA_MESSAGE
+          : extractApiErrorMessage(err, "No se pudo crear la reserva.")
+      );
     } finally {
       setLoading(false);
     }

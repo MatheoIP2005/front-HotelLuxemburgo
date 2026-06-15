@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const DEFAULT_RATE_LIMIT_RETRY_MS = 30000;
+const DEFAULT_RATE_LIMIT_RETRY_METHODS = ["get"];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -25,12 +26,16 @@ const shouldRetryRateLimitedRequest = (error) => {
   const config = error?.config;
   const method = String(config?.method ?? "get").toLowerCase();
   const retryCount = Number(config?._rateLimitRetryCount ?? 0);
+  const retryMethods = Array.isArray(config?.retryRateLimitMethods)
+    ? config.retryRateLimitMethods
+    : DEFAULT_RATE_LIMIT_RETRY_METHODS;
+  const retryLimit = Number(config?.rateLimitMaxRetries ?? 1);
 
   return (
     error?.response?.status === 429 &&
-    method === "get" &&
+    retryMethods.map((item) => String(item).toLowerCase()).includes(method) &&
     config?.retryOnRateLimit !== false &&
-    retryCount < 1
+    retryCount < retryLimit
   );
 };
 

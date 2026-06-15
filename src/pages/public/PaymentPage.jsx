@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useBooking from '../../hooks/useBooking';
 import { createPublicReserva } from '../../services/publicReservas.service';
-import { extractApiErrorMessage } from '../../shared/utils/api';
+import { extractApiErrorMessage, isRateLimitError } from '../../shared/utils/api';
 import Navbar from '../../components/public/Navbar';
 import styles from './PaymentPage.module.css';
 
 const CARD_NUMBER_REGEX = /^\d{16}$/;
 const CVV_REGEX = /^\d{3,4}$/;
+const RATE_LIMIT_RESERVA_MESSAGE =
+  'El servidor de reservas esta limitando solicitudes. Espera 30 segundos e intenta nuevamente.';
 
 const sanitizeDigits = (value) => String(value || '').replace(/\D/g, '');
 
@@ -193,7 +195,11 @@ export default function PaymentPage() {
     } catch (err) {
       setProcessingState('error');
       setSimulationInfo(null);
-      setError(extractApiErrorMessage(err, 'No se pudo crear la reserva.'));
+      setError(
+        isRateLimitError(err)
+          ? RATE_LIMIT_RESERVA_MESSAGE
+          : extractApiErrorMessage(err, 'No se pudo crear la reserva.')
+      );
     } finally {
       setLoading(false);
     }

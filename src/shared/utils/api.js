@@ -1,6 +1,8 @@
 export const extractApiPayload = (response) =>
   response?.data?.data ?? response?.data ?? null;
 
+export const isRateLimitError = (err) => Number(err?.response?.status) === 429;
+
 export const extractApiErrorMessage = (err, fallback = "Ocurrió un error inesperado.") => {
   let apiError = err?.response?.data;
 
