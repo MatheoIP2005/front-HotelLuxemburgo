@@ -11,9 +11,11 @@ import {
 import { getAccommodation } from "../services/publicServices";
 import { useBooking } from "../context/BookingContext";
 import {
+  buildRoomForBooking,
   formatLocation,
   formatMoney,
   getHabitacionesDisponiblesCount,
+  isRoomAvailableForBooking,
   normalizeRoomOptions,
   resolvePropertyImageUrl,
 } from "../utils/booking";
@@ -70,45 +72,32 @@ export default function AccommodationDetailScreen({ navigation, route }) {
   const habitacionesSolicitadas = Number(bookingData.numHabitaciones || 1);
   const roomOptionsDisponibles = useMemo(
     () =>
-      roomOptions.filter(
-        (room) => Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
+      roomOptions.filter((room) =>
+        isRoomAvailableForBooking(room, habitacionesSolicitadas)
       ),
     [roomOptions, habitacionesSolicitadas]
   );
   const habitacionesDisponibles =
     roomOptions.length > 0
       ? roomOptionsDisponibles.length
-      : getHabitacionesDisponiblesCount(propiedad, roomOptions);
+      : getHabitacionesDisponiblesCount(
+          propiedad,
+          roomOptions,
+          habitacionesSolicitadas
+        );
   const hayUnidadesDisponibles = habitacionesDisponibles > 0;
   const imageUrl = resolvePropertyImageUrl(propiedad);
 
-  const roomForBooking = useMemo(() => {
-    if (
-      selectedRoom &&
-      Number(selectedRoom.disponiblesEnRango ?? 1) >= habitacionesSolicitadas
-    ) {
-      return selectedRoom;
-    }
-
-    if (!hayUnidadesDisponibles || !propiedad) return null;
-
-    return {
-      id: null,
-      nombre: "Habitación por asignar",
-      precioPorNoche: roomOptionsDisponibles[0]?.precioPorNoche ?? propiedad.precioDesde ?? 0,
-      disponiblesEnRango: roomOptionsDisponibles[0]?.disponiblesEnRango ?? habitacionesDisponibles,
-      tipoHabitacionGuid: roomOptionsDisponibles[0]?.tipoHabitacionGuid ?? null,
-      habitacionGuid: roomOptionsDisponibles[0]?.habitacionGuid ?? null,
-      tarifaGuid: roomOptionsDisponibles[0]?.tarifaGuid ?? null,
-    };
-  }, [
-    selectedRoom,
-    hayUnidadesDisponibles,
-    propiedad,
-    roomOptionsDisponibles,
-    habitacionesDisponibles,
-    habitacionesSolicitadas,
-  ]);
+  const roomForBooking = useMemo(
+    () =>
+      buildRoomForBooking({
+        selectedRoom,
+        roomOptionsDisponibles,
+        propiedad,
+        habitacionesSolicitadas,
+      }),
+    [selectedRoom, roomOptionsDisponibles, propiedad, habitacionesSolicitadas]
+  );
 
   const canReserve = Boolean(roomForBooking);
 
@@ -182,8 +171,7 @@ export default function AccommodationDetailScreen({ navigation, route }) {
       ) : roomOptions.length > 0 ? (
         roomOptions.map((room) => {
           const isSelected = selectedRoom?.id === room.id;
-          const disponible =
-            Number(room.disponiblesEnRango ?? 1) >= habitacionesSolicitadas;
+          const disponible = isRoomAvailableForBooking(room, habitacionesSolicitadas);
           return (
             <Pressable
               key={String(room.id)}

@@ -122,9 +122,8 @@ const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) =
       nested?.imagenesSucursal,
       nested?.imagenesPropiedad,
       nested?.propiedadImagenes,
-      nested?.imagenes,
-      nested?.galeria,
-      nested?.fotos,
+      nested?.galeriaSucursal,
+      nested?.fotosSucursal,
     ]
       .map((items) => getImageUrlFromCollection(items))
       .find(Boolean);
@@ -135,34 +134,26 @@ const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) =
   return '';
 };
 
+const SUCURSAL_DIRECT_IMAGE_KEYS = [
+  'sucursalImagenPrincipalUrl',
+  'imagenSucursalPrincipalUrl',
+  'imagenSucursalUrl',
+  'urlImagenSucursal',
+  'portadaSucursalUrl',
+  'coverSucursalUrl',
+];
+
 const resolvePropertyImageUrl = (propiedad) => {
   const hydrated = getImageUrlFromRecord(propiedad, ['imagenSucursalResuelta']);
   if (hydrated) return hydrated;
 
-  const direct = getImageUrlFromRecord(propiedad, [
-    'sucursalImagenPrincipalUrl',
-    'imagenSucursalPrincipalUrl',
-    'imagenSucursalUrl',
-    'urlImagenSucursal',
-    'portadaSucursalUrl',
-    'coverSucursalUrl',
-  ]);
+  const direct = getImageUrlFromRecord(propiedad, SUCURSAL_DIRECT_IMAGE_KEYS);
   if (direct) return direct;
 
   const nestedDirect = getImageUrlFromNestedObject(
     propiedad,
     ['sucursal', 'hotel', 'propiedad', 'accommodation', 'data'],
-    [
-      'sucursalImagenPrincipalUrl',
-      'imagenSucursalPrincipalUrl',
-      'imagenSucursalUrl',
-      'urlImagenSucursal',
-      'portadaSucursalUrl',
-      'coverSucursalUrl',
-      'imagenPrincipalUrl',
-      'imagenUrl',
-      'urlImagen',
-    ]
+    SUCURSAL_DIRECT_IMAGE_KEYS
   );
   if (nestedDirect) return nestedDirect;
 
@@ -178,7 +169,7 @@ const resolvePropertyImageUrl = (propiedad) => {
     .find(Boolean);
   if (collection) return collection;
 
-  return getImageUrlFromRecord(propiedad, ['imagenPrincipalUrl']);
+  return '';
 };
 
 const formatLocation = (propiedad) =>

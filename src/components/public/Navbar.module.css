@@ -2,6 +2,9 @@
   background: #1a1a2e;
   padding: 0 24px;
   height: 60px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -34,6 +37,39 @@
   display: flex;
   align-items: center;
   gap: 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .nav {
+    padding: 0 12px;
+    height: auto;
+    min-height: 60px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .logo h1 {
+    font-size: 16px;
+  }
+
+  .links {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .link {
+    font-size: 13px;
+  }
+
+  .adminBtn {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
 }
 
 .link {

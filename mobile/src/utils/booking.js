@@ -66,6 +66,42 @@ export const getImageUrlFromCollection = (collection) => {
   ]);
 };
 
+const SUCURSAL_NESTED_COLLECTION_KEYS = [
+  "sucursalImagenes",
+  "imagenesSucursal",
+  "imagenesPropiedad",
+  "propiedadImagenes",
+  "galeriaSucursal",
+  "fotosSucursal",
+];
+
+const SUCURSAL_DIRECT_IMAGE_KEYS = [
+  "sucursalImagenPrincipalUrl",
+  "imagenSucursalPrincipalUrl",
+  "imagenSucursalUrl",
+  "urlImagenSucursal",
+  "portadaSucursalUrl",
+  "coverSucursalUrl",
+];
+
+export const getSucursalImageFromNestedObject = (source, nestedKeys = []) => {
+  for (const key of nestedKeys) {
+    const nested = source?.[key];
+    if (!nested || typeof nested !== "object") continue;
+
+    const direct = getImageUrlFromRecord(nested, SUCURSAL_DIRECT_IMAGE_KEYS);
+    if (direct) return direct;
+
+    const nestedCollection = SUCURSAL_NESTED_COLLECTION_KEYS.map((collectionKey) =>
+      getImageUrlFromCollection(nested?.[collectionKey])
+    ).find(Boolean);
+
+    if (nestedCollection) return nestedCollection;
+  }
+
+  return "";
+};
+
 export const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) => {
   for (const key of nestedKeys) {
     const nested = source?.[key];
@@ -100,31 +136,16 @@ export const resolvePropertyImageUrl = (propiedad) => {
   const hydrated = getImageUrlFromRecord(propiedad, ["imagenSucursalResuelta"]);
   if (hydrated) return hydrated;
 
-  const direct = getImageUrlFromRecord(propiedad, [
-    "sucursalImagenPrincipalUrl",
-    "imagenSucursalPrincipalUrl",
-    "imagenSucursalUrl",
-    "urlImagenSucursal",
-    "portadaSucursalUrl",
-    "coverSucursalUrl",
-  ]);
+  const direct = getImageUrlFromRecord(propiedad, SUCURSAL_DIRECT_IMAGE_KEYS);
   if (direct) return direct;
 
-  const nestedDirect = getImageUrlFromNestedObject(
-    propiedad,
-    ["sucursal", "hotel", "propiedad", "accommodation", "data"],
-    [
-      "sucursalImagenPrincipalUrl",
-      "imagenSucursalPrincipalUrl",
-      "imagenSucursalUrl",
-      "urlImagenSucursal",
-      "portadaSucursalUrl",
-      "coverSucursalUrl",
-      "imagenPrincipalUrl",
-      "imagenUrl",
-      "urlImagen",
-    ]
-  );
+  const nestedDirect = getSucursalImageFromNestedObject(propiedad, [
+    "sucursal",
+    "hotel",
+    "propiedad",
+    "accommodation",
+    "data",
+  ]);
   if (nestedDirect) return nestedDirect;
 
   const collection = [
@@ -139,7 +160,43 @@ export const resolvePropertyImageUrl = (propiedad) => {
     .find(Boolean);
   if (collection) return collection;
 
-  return getImageUrlFromRecord(propiedad, ["imagenPrincipalUrl"]);
+  return "";
+};
+
+export const isRoomAvailableForBooking = (room, habitacionesSolicitadas = 1) => {
+  if (!room?.tipoHabitacionGuid) return false;
+  return Number(room.disponiblesEnRango ?? 0) >= Number(habitacionesSolicitadas || 1);
+};
+
+export const buildRoomForBooking = ({
+  selectedRoom,
+  roomOptionsDisponibles,
+  propiedad,
+  habitacionesSolicitadas = 1,
+}) => {
+  if (isRoomAvailableForBooking(selectedRoom, habitacionesSolicitadas)) {
+    return selectedRoom;
+  }
+
+  if (selectedRoom) {
+    return null;
+  }
+
+  const firstAvailable = roomOptionsDisponibles.find((room) =>
+    isRoomAvailableForBooking(room, habitacionesSolicitadas)
+  );
+
+  if (!firstAvailable) return null;
+
+  return {
+    id: null,
+    nombre: "Habitación por asignar",
+    precioPorNoche: firstAvailable.precioPorNoche ?? propiedad?.precioDesde ?? 0,
+    disponiblesEnRango: firstAvailable.disponiblesEnRango,
+    tipoHabitacionGuid: firstAvailable.tipoHabitacionGuid,
+    habitacionGuid: firstAvailable.habitacionGuid ?? null,
+    tarifaGuid: firstAvailable.tarifaGuid ?? null,
+  };
 };
 
 export const resolveRoomImageUrl = (room, propiedad) => {
@@ -297,9 +354,15 @@ export const normalizeRoomOptions = (propiedad) => {
   return [];
 };
 
-export const getHabitacionesDisponiblesCount = (propiedad, roomOptions = []) => {
+export const getHabitacionesDisponiblesCount = (
+  propiedad,
+  roomOptions = [],
+  habitacionesSolicitadas = 1
+) => {
   if (roomOptions.length > 0) {
-    return roomOptions.filter((room) => Number(room.disponiblesEnRango ?? 1) > 0).length;
+    return roomOptions.filter((room) =>
+      isRoomAvailableForBooking(room, habitacionesSolicitadas)
+    ).length;
   }
 
   if (typeof propiedad?.habitacionesDisponibles === "number") {

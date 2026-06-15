@@ -128,7 +128,7 @@ export default function PaymentPage() {
     }
 
     if (disponiblesEnRango < habitacionesSolicitadas) {
-      setError('La habitaciÃ³n seleccionada ya no tiene disponibilidad suficiente para esas fechas.');
+      setError('La habitación seleccionada ya no tiene disponibilidad suficiente para esas fechas.');
       return;
     }
 

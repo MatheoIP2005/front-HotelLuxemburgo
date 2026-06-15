@@ -40,9 +40,15 @@ const validateKnownAvailability = (data = {}) => {
         ? null
         : Number(item.disponiblesEnRango);
 
+    if (!item.tipoHabitacionGuid) {
+      throw new Error(
+        "No se pudo resolver el tipo de habitación para crear la reserva."
+      );
+    }
+
     if (disponibles !== null && Number.isFinite(disponibles) && disponibles < solicitadas) {
       throw new Error(
-        "La habitacion seleccionada ya no tiene disponibilidad suficiente para esas fechas."
+        "La habitación seleccionada ya no tiene disponibilidad suficiente para esas fechas."
       );
     }
   }
