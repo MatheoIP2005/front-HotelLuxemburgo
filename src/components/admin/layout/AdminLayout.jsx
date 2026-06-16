@@ -24,7 +24,6 @@ export default function AdminLayout({ children }) {
     "/admin/facturas": "Facturas",
     "/admin/pagos": "Pagos",
     "/admin/valoraciones": "Valoraciones",
-    "/admin/auditoria": "Auditoría",
   };
 
   const getNavItemClassName = ({ isActive }) =>
@@ -97,10 +96,6 @@ export default function AdminLayout({ children }) {
           <NavLink to="/admin/valoraciones" className={getNavItemClassName}>
             <span className={styles.navIcon}>⭐</span>
             <span>Valoraciones</span>
-          </NavLink>
-          <NavLink to="/admin/auditoria" className={getNavItemClassName}>
-            <span className={styles.navIcon}>📋</span>
-            <span>Auditoría</span>
           </NavLink>
         </nav>
 

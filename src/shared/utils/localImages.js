@@ -43,6 +43,8 @@ const LOCAL_IMAGE_FILES = new Set([
 const EXTENSIONS = ["jpeg", "jpg", "png"];
 
 export const LOCAL_IMAGES_PATH_PREFIX = "/imagenes";
+export const LOCAL_SUCURSALES_PATH_PREFIX = `${LOCAL_IMAGES_PATH_PREFIX}/sucursales`;
+export const LOCAL_HABITACIONES_PATH_PREFIX = `${LOCAL_IMAGES_PATH_PREFIX}/habitaciones`;
 
 const TOKEN_TO_SUCURSAL_CODE = {
   YASUNI: "YAS",
@@ -207,18 +209,20 @@ export const resolveLocalImageFilename = (baseName) => {
   return "";
 };
 
-export const buildLocalImagePath = (baseName) => {
+export const buildLocalImagePath = (baseName, folder = "") => {
   const filename = resolveLocalImageFilename(baseName);
   if (!filename) return "";
-  return `${LOCAL_IMAGES_PATH_PREFIX}/${filename}`;
+  const normalizedFolder = trim(folder).replace(/^\/+|\/+$/g, "");
+  if (!normalizedFolder) return `${LOCAL_IMAGES_PATH_PREFIX}/${filename}`;
+  return `${LOCAL_IMAGES_PATH_PREFIX}/${normalizedFolder}/${filename}`;
 };
 
-const resolveFirstLocalImagePath = (candidates, normalizeCode) => {
+const resolveFirstLocalImagePath = (candidates, normalizeCode, folder) => {
   for (const candidate of candidates) {
     const baseName = normalizeCode(candidate);
     if (!baseName) continue;
 
-    const path = buildLocalImagePath(baseName);
+    const path = buildLocalImagePath(baseName, folder);
     if (path) return path;
   }
 
@@ -228,13 +232,15 @@ const resolveFirstLocalImagePath = (candidates, normalizeCode) => {
 export const resolveLocalSucursalImagePath = (record = {}) =>
   resolveFirstLocalImagePath(
     collectSucursalCodeCandidates(record),
-    normalizeSucursalCode
+    normalizeSucursalCode,
+    "sucursales"
   );
 
 export const resolveLocalTipoHabitacionImagePath = (record = {}) =>
   resolveFirstLocalImagePath(
     collectTipoHabitacionCodeCandidates(record),
-    normalizeTipoHabitacionCode
+    normalizeTipoHabitacionCode,
+    "habitaciones"
   );
 
 export const toAbsoluteLocalImageUrl = (path, baseUrl = "") => {

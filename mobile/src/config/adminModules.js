@@ -47,9 +47,7 @@ export const ADMIN_MODULE_GROUPS = [
   {
     key: "seguridad",
     title: "Seguridad",
-    modules: [
-      { key: "auditoria", title: "Auditoría", route: "AdminAuditoria", implemented: true },
-    ],
+    modules: [],
   },
 ];
 
