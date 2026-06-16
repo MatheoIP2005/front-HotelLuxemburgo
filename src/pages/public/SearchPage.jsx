@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchAccommodations } from '../../services/accommodations.service';
-import { resolveLocalSucursalImagePath } from '../../shared/utils/localImages';
+import { resolvePropertyImageUrl } from '../../shared/utils/propertyImages';
 import useBooking from '../../hooks/useBooking';
 import MinimalDateInput from '../../components/public/MinimalDateInput';
 import Navbar from '../../components/public/Navbar';
@@ -77,105 +77,6 @@ const buildSearchKey = (payload) =>
     numHabitaciones: payload.numHabitaciones,
     numNinos: payload.numNinos ?? '',
   });
-
-const getImageUrlFromRecord = (record, directKeys = []) => {
-  for (const key of directKeys) {
-    const candidate = record?.[key];
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return '';
-};
-
-const getFirstStringImage = (items) =>
-  Array.isArray(items)
-    ? items.find((item) => typeof item === 'string' && item.trim())?.trim() || ''
-    : '';
-
-const getImageUrlFromCollection = (collection) => {
-  if (!Array.isArray(collection) || collection.length === 0) return '';
-
-  const directStringImage = getFirstStringImage(collection);
-  if (directStringImage) return directStringImage;
-
-  const principal =
-    collection.find((item) => item?.esPrincipal || item?.es_principal || item?.principal) ??
-    collection[0];
-
-  return getImageUrlFromRecord(principal, [
-    'urlImagen',
-    'url_imagen',
-    'imagenUrl',
-    'imagen_url',
-    'secureUrl',
-    'url',
-  ]);
-};
-
-const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) => {
-  for (const key of nestedKeys) {
-    const nested = source?.[key];
-    if (!nested || typeof nested !== 'object') continue;
-
-    const direct = getImageUrlFromRecord(nested, directKeys);
-    if (direct) return direct;
-
-    const nestedCollection = [
-      nested?.sucursalImagenes,
-      nested?.imagenesSucursal,
-      nested?.imagenesPropiedad,
-      nested?.propiedadImagenes,
-      nested?.galeriaSucursal,
-      nested?.fotosSucursal,
-    ]
-      .map((items) => getImageUrlFromCollection(items))
-      .find(Boolean);
-
-    if (nestedCollection) return nestedCollection;
-  }
-
-  return '';
-};
-
-const SUCURSAL_DIRECT_IMAGE_KEYS = [
-  'sucursalImagenPrincipalUrl',
-  'imagenSucursalPrincipalUrl',
-  'imagenSucursalUrl',
-  'urlImagenSucursal',
-  'portadaSucursalUrl',
-  'coverSucursalUrl',
-];
-
-const resolvePropertyImageUrl = (propiedad) => {
-  const hydrated = getImageUrlFromRecord(propiedad, ['imagenSucursalResuelta']);
-  if (hydrated) return hydrated;
-
-  const direct = getImageUrlFromRecord(propiedad, SUCURSAL_DIRECT_IMAGE_KEYS);
-  if (direct) return direct;
-
-  const nestedDirect = getImageUrlFromNestedObject(
-    propiedad,
-    ['sucursal', 'hotel', 'propiedad', 'accommodation', 'data'],
-    SUCURSAL_DIRECT_IMAGE_KEYS
-  );
-  if (nestedDirect) return nestedDirect;
-
-  const collection = [
-    propiedad?.sucursalImagenes,
-    propiedad?.imagenesSucursal,
-    propiedad?.imagenesPropiedad,
-    propiedad?.propiedadImagenes,
-    propiedad?.galeriaSucursal,
-    propiedad?.fotosSucursal,
-  ]
-    .map((items) => getImageUrlFromCollection(items))
-    .find(Boolean);
-  if (collection) return collection;
-
-  return resolveLocalSucursalImagePath(propiedad);
-};
 
 const formatLocation = (propiedad) =>
   [propiedad?.ciudad, propiedad?.pais].filter(Boolean).join(', ');

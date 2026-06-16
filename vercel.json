@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/imagenes/:path*",
+      "destination": "/imagenes/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

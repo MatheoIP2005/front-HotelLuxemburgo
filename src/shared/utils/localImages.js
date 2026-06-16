@@ -44,6 +44,40 @@ const EXTENSIONS = ["jpeg", "jpg", "png"];
 
 export const LOCAL_IMAGES_PATH_PREFIX = "/imagenes";
 
+const TOKEN_TO_SUCURSAL_CODE = {
+  YASUNI: "YAS",
+  ORELLANA: "YAS",
+  MINDO: "MND",
+  COTOPAXI: "COT",
+  LATACUNGA: "COT",
+  MARISCAL: "UIOR",
+  SAME: "SAM",
+  QUITO: "UIO",
+  GUAYAQUIL: "GYE",
+  CUENCA: "CUE",
+  MANTA: "MAN",
+  PUYO: "PUY",
+  BANOS: "BAN",
+  BAÑOS: "BAN",
+  SALINAS: "SAL",
+  RIOBAMBA: "RIO",
+  AMBATO: "TEN",
+  IBARRA: "IBR",
+  NAPO: "NAP",
+  PAPALLACTA: "PAP",
+};
+
+const COMPOUND_SUCURSAL_RULES = [
+  { all: ["MINDO", "WELLNESS"], code: "MNDW" },
+  { all: ["MINDO", "CLOUD"], code: "MNDW" },
+  { all: ["CUENCA", "HISTORICO"], code: "CUEH" },
+  { all: ["CUENCA", "HISTORICA"], code: "CUEH" },
+  { all: ["CUENCA", "CENTRO"], code: "CUEA" },
+  { all: ["GUAYAQUIL", "AEROPUERTO"], code: "GYEA" },
+  { all: ["QUITO", "HISTORICO"], code: "UIOH" },
+  { all: ["QUITO", "HISTORICA"], code: "UIOH" },
+];
+
 const normalizeSucursalCode = (codigo) => {
   const value = trim(codigo).toUpperCase();
   if (!value) return "";
@@ -58,71 +92,63 @@ const normalizeTipoHabitacionCode = (codigo) => {
 
 const extractLuxCodeFromText = (value) => {
   const match = trim(value).toUpperCase().match(/LUX-[A-Z0-9]+/);
-  return match ? match[0] : "";
+  return match ? match[0].replace(/^LUX-/, "") : "";
 };
 
-const CITY_TO_SUCURSAL_CODE = {
-  GUAYAQUIL: "GYE",
-  QUITO: "UIO",
-  CUENCA: "CUE",
-  MANTA: "MAN",
-  PUYO: "PUY",
-  BANOS: "BAN",
-  "BAÑOS": "BAN",
-  SALINAS: "SAL",
-  RIOBAMBA: "RIO",
-  AMBATO: "TEN",
-};
-
-const inferSucursalCodesFromText = (...parts) => {
-  const text = parts
+const tokenizeText = (...parts) =>
+  parts
     .map((part) => trim(part))
     .filter(Boolean)
     .join(" ")
-    .toUpperCase();
+    .toUpperCase()
+    .split(/[^A-Z0-9ÁÉÍÓÚÑ]+/u)
+    .map((token) => token.normalize("NFD").replace(/\p{M}/gu, ""))
+    .filter(Boolean);
 
-  if (!text) return [];
+const inferSucursalCodesFromText = (...parts) => {
+  const tokens = tokenizeText(...parts);
+  if (tokens.length === 0) return [];
 
+  const tokenSet = new Set(tokens);
   const inferred = [];
 
-  for (const [city, code] of Object.entries(CITY_TO_SUCURSAL_CODE)) {
-    if (text.includes(city)) inferred.push(code);
+  for (const rule of COMPOUND_SUCURSAL_RULES) {
+    if (rule.all.every((keyword) => tokenSet.has(keyword))) {
+      inferred.push(rule.code);
+    }
   }
 
-  for (const filename of LOCAL_IMAGE_FILES) {
-    if (!filename.startsWith("LUX-")) continue;
-    const baseName = filename.replace(/\.(jpeg|jpg|png)$/i, "");
-    const shortCode = baseName.replace(/^LUX-/, "");
-    if (text.includes(baseName) || text.includes(shortCode)) {
-      inferred.push(shortCode);
-    }
+  for (const token of tokens) {
+    const mapped = TOKEN_TO_SUCURSAL_CODE[token];
+    if (mapped) inferred.push(mapped);
   }
 
   return inferred;
 };
 
 const collectSucursalCodeCandidates = (record = {}) => {
-  const candidates = [];
-  const add = (value) => {
+  const explicitCandidates = [];
+  const inferredCandidates = [];
+  const addCandidate = (target, value) => {
     const normalized = trim(value);
     if (!normalized) return;
-    candidates.push(normalized);
+    target.push(normalized);
     const luxCode = extractLuxCodeFromText(normalized);
-    if (luxCode) candidates.push(luxCode);
+    if (luxCode) target.push(luxCode);
   };
 
-  add(record.codigoSucursal);
-  add(record.codigo_sucursal);
-  add(record.codigo);
-  add(record.slug);
-  add(record.sucursal?.codigoSucursal);
-  add(record.sucursal?.codigo_sucursal);
-  add(record.sucursal?.codigo);
-  add(record.sucursal?.slug);
-  add(record.hotel?.codigoSucursal);
-  add(record.hotel?.codigo);
-  add(record.propiedad?.codigoSucursal);
-  add(record.propiedad?.codigo);
+  addCandidate(explicitCandidates, record.codigoSucursal);
+  addCandidate(explicitCandidates, record.codigo_sucursal);
+  addCandidate(explicitCandidates, record.codigo);
+  addCandidate(explicitCandidates, record.slug);
+  addCandidate(explicitCandidates, record.sucursal?.codigoSucursal);
+  addCandidate(explicitCandidates, record.sucursal?.codigo_sucursal);
+  addCandidate(explicitCandidates, record.sucursal?.codigo);
+  addCandidate(explicitCandidates, record.sucursal?.slug);
+  addCandidate(explicitCandidates, record.hotel?.codigoSucursal);
+  addCandidate(explicitCandidates, record.hotel?.codigo);
+  addCandidate(explicitCandidates, record.propiedad?.codigoSucursal);
+  addCandidate(explicitCandidates, record.propiedad?.codigo);
 
   inferSucursalCodesFromText(
     record.nombre,
@@ -131,9 +157,9 @@ const collectSucursalCodeCandidates = (record = {}) => {
     record.sucursal?.nombre,
     record.sucursal?.nombreSucursal,
     record.sucursal?.ciudad
-  ).forEach(add);
+  ).forEach((value) => addCandidate(inferredCandidates, value));
 
-  return [...new Set(candidates)];
+  return [...new Set([...inferredCandidates, ...explicitCandidates])];
 };
 
 const inferTipoHabitacionCodeFromName = (nombre) => {
@@ -178,7 +204,7 @@ export const resolveLocalImageFilename = (baseName) => {
     }
   }
 
-  return `${normalized}.jpeg`;
+  return "";
 };
 
 export const buildLocalImagePath = (baseName) => {
@@ -192,17 +218,11 @@ const resolveFirstLocalImagePath = (candidates, normalizeCode) => {
     const baseName = normalizeCode(candidate);
     if (!baseName) continue;
 
-    const filename = resolveLocalImageFilename(baseName);
-    if (LOCAL_IMAGE_FILES.has(filename)) {
-      return buildLocalImagePath(baseName);
-    }
+    const path = buildLocalImagePath(baseName);
+    if (path) return path;
   }
 
-  const firstCandidate = candidates[0];
-  if (!firstCandidate) return "";
-
-  const fallbackBaseName = normalizeCode(firstCandidate);
-  return fallbackBaseName ? buildLocalImagePath(fallbackBaseName) : "";
+  return "";
 };
 
 export const resolveLocalSucursalImagePath = (record = {}) =>

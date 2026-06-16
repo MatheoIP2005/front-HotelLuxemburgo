@@ -24,9 +24,6 @@ export default function AdminLayout({ children }) {
     "/admin/facturas": "Facturas",
     "/admin/pagos": "Pagos",
     "/admin/valoraciones": "Valoraciones",
-    "/admin/usuarios": "Usuarios",
-    "/admin/roles": "Roles",
-    "/admin/cambiar-password": "Cambiar contraseña",
     "/admin/auditoria": "Auditoría",
   };
 
@@ -100,18 +97,6 @@ export default function AdminLayout({ children }) {
           <NavLink to="/admin/valoraciones" className={getNavItemClassName}>
             <span className={styles.navIcon}>⭐</span>
             <span>Valoraciones</span>
-          </NavLink>
-          <NavLink to="/admin/usuarios" className={getNavItemClassName}>
-            <span className={styles.navIcon}>👤</span>
-            <span>Usuarios</span>
-          </NavLink>
-          <NavLink to="/admin/roles" className={getNavItemClassName}>
-            <span className={styles.navIcon}>🔐</span>
-            <span>Roles</span>
-          </NavLink>
-          <NavLink to="/admin/cambiar-password" className={getNavItemClassName}>
-            <span className={styles.navIcon}>🔑</span>
-            <span>Cambiar contraseña</span>
           </NavLink>
           <NavLink to="/admin/auditoria" className={getNavItemClassName}>
             <span className={styles.navIcon}>📋</span>

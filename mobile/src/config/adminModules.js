@@ -48,14 +48,6 @@ export const ADMIN_MODULE_GROUPS = [
     key: "seguridad",
     title: "Seguridad",
     modules: [
-      { key: "usuarios", title: "Usuarios", route: "AdminUsuarios", implemented: true },
-      { key: "roles", title: "Roles", route: "AdminRoles", implemented: true },
-      {
-        key: "cambiar-password",
-        title: "Cambiar contraseña",
-        route: "AdminCambiarPassword",
-        implemented: true,
-      },
       { key: "auditoria", title: "Auditoría", route: "AdminAuditoria", implemented: true },
     ],
   },

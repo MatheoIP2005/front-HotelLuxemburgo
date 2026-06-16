@@ -1,12 +1,8 @@
 import {
-  resolveLocalSucursalImagePath,
-  resolveLocalTipoHabitacionImagePath,
-  toAbsoluteLocalImageUrl,
-} from "../../../src/shared/utils/localImages";
+  resolvePropertyImageUrl as resolveSharedPropertyImageUrl,
+  resolveRoomImageUrl as resolveSharedRoomImageUrl,
+} from "../../../src/shared/utils/propertyImages";
 import { getImagesBaseUrl } from "../config/images";
-
-const resolveLocalImageUrl = (path) =>
-  toAbsoluteLocalImageUrl(path, getImagesBaseUrl());
 
 export const getOptionalChildrenCount = (value) =>
   value === "" || value === null || value === undefined ? 0 : Number(value);
@@ -38,143 +34,13 @@ export const formatMoney = (value) => {
 export const formatLocation = (propiedad) =>
   [propiedad?.ciudad, propiedad?.pais].filter(Boolean).join(", ");
 
-export const getImageUrlFromRecord = (record, directKeys = []) => {
-  for (const key of directKeys) {
-    const candidate = record?.[key];
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return "";
-};
-
-export const getImageUrl = getImageUrlFromRecord;
-
 export const getFirstStringImage = (items) =>
   Array.isArray(items)
     ? items.find((item) => typeof item === "string" && item.trim())?.trim() || ""
     : "";
 
-export const getImageUrlFromCollection = (collection) => {
-  if (!Array.isArray(collection) || collection.length === 0) return "";
-
-  const directStringImage = getFirstStringImage(collection);
-  if (directStringImage) return directStringImage;
-
-  const principal =
-    collection.find((item) => item?.esPrincipal || item?.es_principal || item?.principal) ??
-    collection[0];
-
-  return getImageUrlFromRecord(principal, [
-    "urlImagen",
-    "url_imagen",
-    "imagenUrl",
-    "imagen_url",
-    "secureUrl",
-    "url",
-  ]);
-};
-
-const SUCURSAL_NESTED_COLLECTION_KEYS = [
-  "sucursalImagenes",
-  "imagenesSucursal",
-  "imagenesPropiedad",
-  "propiedadImagenes",
-  "galeriaSucursal",
-  "fotosSucursal",
-];
-
-const SUCURSAL_DIRECT_IMAGE_KEYS = [
-  "sucursalImagenPrincipalUrl",
-  "imagenSucursalPrincipalUrl",
-  "imagenSucursalUrl",
-  "urlImagenSucursal",
-  "portadaSucursalUrl",
-  "coverSucursalUrl",
-];
-
-export const getSucursalImageFromNestedObject = (source, nestedKeys = []) => {
-  for (const key of nestedKeys) {
-    const nested = source?.[key];
-    if (!nested || typeof nested !== "object") continue;
-
-    const direct = getImageUrlFromRecord(nested, SUCURSAL_DIRECT_IMAGE_KEYS);
-    if (direct) return direct;
-
-    const nestedCollection = SUCURSAL_NESTED_COLLECTION_KEYS.map((collectionKey) =>
-      getImageUrlFromCollection(nested?.[collectionKey])
-    ).find(Boolean);
-
-    if (nestedCollection) return nestedCollection;
-  }
-
-  return "";
-};
-
-export const getImageUrlFromNestedObject = (source, nestedKeys = [], directKeys = []) => {
-  for (const key of nestedKeys) {
-    const nested = source?.[key];
-    if (!nested || typeof nested !== "object") continue;
-
-    const direct = getImageUrlFromRecord(nested, directKeys);
-    if (direct) return direct;
-
-    const nestedCollection = [
-      nested?.tipoHabitacionImagenes,
-      nested?.imagenesTipoHabitacion,
-      nested?.habitacionImagenes,
-      nested?.imagenesHabitacion,
-      nested?.imagenes,
-      nested?.galeria,
-      nested?.fotos,
-      nested?.sucursalImagenes,
-      nested?.imagenesSucursal,
-      nested?.imagenesPropiedad,
-      nested?.propiedadImagenes,
-    ]
-      .map((items) => getImageUrlFromCollection(items))
-      .find(Boolean);
-
-    if (nestedCollection) return nestedCollection;
-  }
-
-  return "";
-};
-
-export const resolvePropertyImageUrl = (propiedad) => {
-  const hydrated = getImageUrlFromRecord(propiedad, ["imagenSucursalResuelta"]);
-  if (hydrated) return hydrated;
-
-  const direct = getImageUrlFromRecord(propiedad, SUCURSAL_DIRECT_IMAGE_KEYS);
-  if (direct) return direct;
-
-  const nestedDirect = getSucursalImageFromNestedObject(propiedad, [
-    "sucursal",
-    "hotel",
-    "propiedad",
-    "accommodation",
-    "data",
-  ]);
-  if (nestedDirect) return nestedDirect;
-
-  const collection = [
-    propiedad?.sucursalImagenes,
-    propiedad?.imagenesSucursal,
-    propiedad?.imagenesPropiedad,
-    propiedad?.propiedadImagenes,
-    propiedad?.galeriaSucursal,
-    propiedad?.fotosSucursal,
-  ]
-    .map((items) => getImageUrlFromCollection(items))
-    .find(Boolean);
-  if (collection) return collection;
-
-  const localPath = resolveLocalSucursalImagePath(propiedad);
-  if (localPath) return resolveLocalImageUrl(localPath);
-
-  return "";
-};
+export const resolvePropertyImageUrl = (propiedad) =>
+  resolveSharedPropertyImageUrl(propiedad, { imagesBaseUrl: getImagesBaseUrl() });
 
 export const isRoomAvailableForBooking = (room, habitacionesSolicitadas = 1) => {
   if (!room?.tipoHabitacionGuid) return false;
@@ -212,94 +78,8 @@ export const buildRoomForBooking = ({
   };
 };
 
-export const resolveRoomImageUrl = (room, propiedad) => {
-  const direct = getImageUrlFromRecord(room, [
-    "tipoHabitacionImagenPrincipalUrl",
-    "tipoHabitacionImagenUrl",
-    "habitacionImagenPrincipalUrl",
-    "habitacionImagenUrl",
-    "portadaHabitacionUrl",
-    "coverHabitacionUrl",
-    "fotoHabitacionUrl",
-    "fotoTipoHabitacionUrl",
-    "imagenPrincipalUrl",
-    "imagenTipoHabitacionUrl",
-    "imagenHabitacionUrl",
-    "urlImagen",
-    "imagenUrl",
-  ]);
-  if (direct) return direct;
-
-  const nestedDirect = getImageUrlFromNestedObject(
-    room,
-    ["tipoHabitacion", "habitacion", "roomType", "room", "tipo", "detalle", "data"],
-    [
-      "tipoHabitacionImagenPrincipalUrl",
-      "tipoHabitacionImagenUrl",
-      "habitacionImagenPrincipalUrl",
-      "habitacionImagenUrl",
-      "portadaHabitacionUrl",
-      "coverHabitacionUrl",
-      "fotoHabitacionUrl",
-      "fotoTipoHabitacionUrl",
-      "imagenPrincipalUrl",
-      "imagenTipoHabitacionUrl",
-      "imagenHabitacionUrl",
-      "imagenUrl",
-      "urlImagen",
-    ]
-  );
-  if (nestedDirect) return nestedDirect;
-
-  const nested = [
-    room?.tipoHabitacionImagenes,
-    room?.imagenesTipoHabitacion,
-    room?.habitacionImagenes,
-    room?.imagenesHabitacion,
-    room?.imagenes,
-    room?.galeria,
-    room?.fotos,
-  ]
-    .map((items) => getImageUrlFromCollection(items))
-    .find(Boolean);
-  if (nested) return nested;
-
-  const matchingTipo = Array.isArray(propiedad?.tiposHabitacion)
-    ? propiedad.tiposHabitacion.find(
-        (tipo) =>
-          String(tipo?.tipoHabitacionGuid ?? "") === String(room?.tipoHabitacionGuid ?? "")
-      )
-    : null;
-
-  if (matchingTipo && matchingTipo !== room) {
-    const matchingTipoImage = resolveRoomImageUrl(matchingTipo, null);
-    if (matchingTipoImage) return matchingTipoImage;
-  }
-
-  const propertyRoomImages = [
-    propiedad?.tipoHabitacionImagenes,
-    propiedad?.imagenesTipoHabitacion,
-    propiedad?.habitacionImagenes,
-    propiedad?.imagenesHabitacion,
-  ]
-    .flatMap((items) => (Array.isArray(items) ? items : []))
-    .filter((item) => {
-      const tipoGuid = item?.tipoHabitacionGuid ?? item?.tipo_habitacion_guid;
-      const habitacionGuid = item?.habitacionGuid ?? item?.habitacion_guid;
-      return (
-        (tipoGuid && String(tipoGuid) === String(room?.tipoHabitacionGuid ?? "")) ||
-        (habitacionGuid && String(habitacionGuid) === String(room?.habitacionGuid ?? ""))
-      );
-    });
-
-  const matchedImage = getImageUrlFromCollection(propertyRoomImages);
-  if (matchedImage) return matchedImage;
-
-  const localPath = resolveLocalTipoHabitacionImagePath(room);
-  if (localPath) return resolveLocalImageUrl(localPath);
-
-  return "";
-};
+export const resolveRoomImageUrl = (room, propiedad) =>
+  resolveSharedRoomImageUrl(room, propiedad, { imagesBaseUrl: getImagesBaseUrl() });
 
 export const normalizeRoomOptions = (propiedad) => {
   const tiposHabitacion = Array.isArray(propiedad?.tiposHabitacion)
