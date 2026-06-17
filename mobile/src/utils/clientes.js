@@ -111,7 +111,7 @@ export const resolvePublicClienteFieldUpdate = (prev, key, value) => {
   };
 };
 
-export const validateClienteForm = (form, isEdit = false) => {
+export const validateClienteForm = (form = {}, isEdit = false) => {
   const errors = {};
   const numeroIdentificacion = String(form.numeroIdentificacion ?? "").trim();
   const nombres = String(form.nombres ?? "").trim();

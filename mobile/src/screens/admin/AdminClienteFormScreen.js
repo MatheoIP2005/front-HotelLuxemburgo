@@ -18,7 +18,7 @@ import {
   MAX_LENGTHS,
 } from "../../../../src/utils/constraints";
 import { validateClienteForm, resolveClienteFieldUpdate } from "../../utils/clientes";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
 
 const EMPTY_FORM = {
   tipoIdentificacion: "CED",
@@ -49,6 +49,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getCliente(id);
+        if (!ensureLoadedEntity(data, setError, "Cliente no encontrado.")) return;
         setForm({
           tipoIdentificacion: normalizeTipoIdentificacion(data.tipoIdentificacion),
           numeroIdentificacion: data.numeroIdentificacion ?? "",

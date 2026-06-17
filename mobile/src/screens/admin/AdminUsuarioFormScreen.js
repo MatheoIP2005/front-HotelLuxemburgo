@@ -12,6 +12,7 @@ import {
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS, USER_STATES } from "../../../../src/utils/constraints";
 import { validateUsuarioForm, resolveUsuarioFieldUpdate } from "../../utils/usuarios";
+import { ensureLoadedEntity } from "../../utils/adminCollection";
 import { colors } from "../../styles/theme";
 
 const EMPTY_FORM = {
@@ -42,6 +43,7 @@ export default function AdminUsuarioFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getUsuario(id);
+        if (!ensureLoadedEntity(data, setError, "Usuario no encontrado.")) return;
         setForm({
           username: data.username ?? "",
           nombres: data.nombres ?? "",

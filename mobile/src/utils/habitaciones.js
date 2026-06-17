@@ -5,7 +5,14 @@ import {
 } from "./numeric";
 import { isValidGuid } from "./reservas";
 
-export const validateHabitacionForm = (form, isEdit = false) => {
+export const formatHabitacionDisponibleLabel = (habitacion) => {
+  if (!habitacion) return "Sin habitación";
+  const numero = habitacion.numeroHabitacion ?? habitacion.NumeroHabitacion ?? "-";
+  const tipo = habitacion.tipoNombre ?? habitacion.TipoNombre;
+  return tipo ? `Hab. ${numero} · ${tipo}` : `Hab. ${numero}`;
+};
+
+export const validateHabitacionForm = (form = {}, isEdit = false) => {
   const errors = {};
   const numeroHabitacion = String(form.numeroHabitacion ?? "").trim();
   const descripcionHabitacion = String(form.descripcionHabitacion ?? "").trim();

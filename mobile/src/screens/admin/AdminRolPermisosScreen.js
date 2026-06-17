@@ -128,11 +128,13 @@ export default function AdminRolPermisosScreen({ route }) {
             El backend no expone permisos en el catálogo. Usa el ID manual.
           </Text>
         ) : (
-          permisosCatalog.map((permiso, index) => (
+          permisosCatalog.map((permiso, index) =>
+            permiso != null && permiso !== "" ? (
             <Text key={`${permiso}-${index}`} style={styles.catalogItem}>
               {typeof permiso === "string" ? permiso : String(permiso)}
             </Text>
-          ))
+            ) : null
+          )
         )}
       </AdminDetailSection>
 

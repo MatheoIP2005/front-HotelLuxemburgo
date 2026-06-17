@@ -5,6 +5,7 @@ import {
   USER_STATES,
 } from "../../../src/utils/constraints";
 import { sanitizePersonNameInput } from "./text";
+import { filterSafeList } from "./adminCollection";
 
 export const resolveUsuarioFieldUpdate = (prev, key, value) => {
   if (key === "nombres" || key === "apellidos") {
@@ -23,7 +24,7 @@ export const getUsuarioDisplayName = (usuario) => {
   return nombre || usuario.username || "-";
 };
 
-export const validateUsuarioForm = (form, isEdit = false) => {
+export const validateUsuarioForm = (form = {}, isEdit = false) => {
   const errors = {};
   const username = String(form.username ?? "").trim();
   const nombres = String(form.nombres ?? "").trim();
@@ -72,4 +73,5 @@ export const validateUsuarioForm = (form, isEdit = false) => {
   return errors;
 };
 
-export const normalizeRolesList = (response) => (Array.isArray(response) ? response : response?.items ?? []);
+export const normalizeRolesList = (response) =>
+  filterSafeList(Array.isArray(response) ? response : response?.items ?? []);

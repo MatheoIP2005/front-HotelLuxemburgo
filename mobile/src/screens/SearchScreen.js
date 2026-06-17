@@ -23,6 +23,7 @@ import {
   resolvePropertyImageUrl,
 } from "../utils/booking";
 import { API_CONFIG_WARNING, isApiConfigured } from "../config/env";
+import { createSafeRenderItem, filterSafeList } from "../utils/adminCollection";
 import {
   parseNonNegativeInteger,
   parsePositiveInteger,
@@ -221,7 +222,7 @@ export default function SearchScreen({ navigation }) {
 
     try {
       const response = await searchAccommodations(searchPayload);
-      const items = Array.isArray(response?.items) ? response.items : [];
+      const items = (Array.isArray(response?.items) ? response.items : []).filter(Boolean);
       setItems(items);
       setTotal(Number(response?.totalResultados ?? response?.total ?? items.length));
     } catch (err) {
@@ -248,6 +249,7 @@ export default function SearchScreen({ navigation }) {
   };
 
   const openDetail = (item) => {
+    if (!item) return;
     const id = item.sucursalGuid ?? item.id ?? item.slug;
     if (!id) return;
 
@@ -275,8 +277,10 @@ export default function SearchScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <FlatList
-        data={items}
-        keyExtractor={(item, index) => String(item.sucursalGuid ?? item.id ?? index)}
+        data={filterSafeList(items)}
+        keyExtractor={(item, index) =>
+          String(item?.sucursalGuid ?? item?.id ?? index)
+        }
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.eyebrow}>Reserva móvil</Text>
@@ -371,7 +375,7 @@ export default function SearchScreen({ navigation }) {
             </View>
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={createSafeRenderItem(({ item }) => {
           const imageUrl = resolvePropertyImageUrl(item);
 
           return (
@@ -384,18 +388,18 @@ export default function SearchScreen({ navigation }) {
                 </View>
               )}
               <View style={styles.resultBody}>
-                <Text style={styles.resultName}>{item.nombre}</Text>
+                <Text style={styles.resultName}>{item?.nombre ?? "Sin nombre"}</Text>
                 <Text style={styles.muted}>{formatLocation(item) || "Ubicación no disponible"}</Text>
                 <View style={styles.resultFooter}>
-                  <Text style={styles.badge}>{item.promedioValoracion ?? "-"}</Text>
+                  <Text style={styles.badge}>{item?.promedioValoracion ?? "-"}</Text>
                   <Text style={styles.price}>
-                    Desde {formatMoney(item.precioDesde)}
+                    Desde {formatMoney(item?.precioDesde)}
                   </Text>
                 </View>
               </View>
             </Pressable>
           );
-        }}
+        })}
         ListEmptyComponent={
           searched && !loading ? (
             <Text style={styles.empty}>No hay resultados para esta búsqueda.</Text>

@@ -14,7 +14,7 @@ import { getSucursales } from "../../services/sucursales.service";
 import { getTiposHabitacion } from "../../services/tiposHabitacion.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { HABITACION_ESTADOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList, pickGuid } from "../../utils/adminCollection";
+import { normalizeAdminList, pickGuid, ensureLoadedEntity } from "../../utils/adminCollection";
 import {
   buildHabitacionPayload,
   validateHabitacionForm,
@@ -23,6 +23,8 @@ import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
 } from "../../utils/numeric";
+import { formatSucursalLabel } from "../../utils/sucursales";
+import { formatTipoHabitacionLabel } from "../../utils/tiposHabitacion";
 
 const EMPTY_FORM = {
   sucursalGuid: "",
@@ -50,7 +52,7 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
     () =>
       sucursales.map((s) => ({
         value: pickGuid(s, "sucursalGuid", "sucursal_guid"),
-        label: `${s.nombreSucursal} (${s.codigoSucursal})`,
+        label: formatSucursalLabel(s),
       })),
     [sucursales]
   );
@@ -59,7 +61,7 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
     () =>
       tipos.map((t) => ({
         value: pickGuid(t, "tipoHabitacionGuid", "tipo_habitacion_guid"),
-        label: `${t.nombreTipoHabitacion} (${t.codigoTipoHabitacion})`,
+        label: formatTipoHabitacionLabel(t),
       })),
     [tipos]
   );
@@ -88,6 +90,7 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getHabitacion(id);
+        if (!ensureLoadedEntity(data, setError, "Habitación no encontrada.")) return;
         setForm({
           sucursalGuid: data.sucursalGuid ?? "",
           tipoHabitacionGuid: data.tipoHabitacionGuid ?? "",

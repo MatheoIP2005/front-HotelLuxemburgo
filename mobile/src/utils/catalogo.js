@@ -8,7 +8,14 @@ import { parseNonNegativeNumber } from "./numeric";
 
 const trim = (value) => String(value ?? "").trim();
 
-export const validateCatalogoForm = (form, isEdit = false) => {
+export const formatCatalogoLabel = (item) => {
+  if (!item) return "Sin ítem";
+  const nombre = item.nombreCatalogo ?? item.nombre ?? "Sin nombre";
+  const precio = Number(item.precioBase ?? 0).toFixed(2);
+  return `${nombre} · $${precio}`;
+};
+
+export const validateCatalogoForm = (form = {}, isEdit = false) => {
   const errors = {};
   const codigoCatalogo = trim(form.codigoCatalogo);
   const nombreCatalogo = trim(form.nombreCatalogo);

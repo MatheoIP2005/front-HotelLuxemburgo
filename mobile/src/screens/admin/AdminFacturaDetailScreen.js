@@ -26,7 +26,7 @@ import { getReserva } from "../../services/reservas.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
 import { validateMotivoFactura } from "../../utils/text";
-import { confirmAdminAction } from "../../utils/adminCollection";
+import { confirmAdminAction, filterSafeList } from "../../utils/adminCollection";
 import {
   buildFacturaGeneracionBody,
   canAnularFactura,
@@ -96,8 +96,8 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
         getFacturaPagos(id),
       ]);
       setFactura(facturaData);
-      setDetalle(Array.isArray(detalleData) ? detalleData : detalleData?.items ?? []);
-      setPagos(Array.isArray(pagosData) ? pagosData : pagosData?.items ?? []);
+      setDetalle(filterSafeList(Array.isArray(detalleData) ? detalleData : detalleData?.items ?? []));
+      setPagos(filterSafeList(Array.isArray(pagosData) ? pagosData : pagosData?.items ?? []));
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudo cargar la factura."));
       setFactura(null);
@@ -127,9 +127,9 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
         getEstadias({ pagina: 1, limite: 200, reservaGuid: guid }).catch(() => []),
       ]);
       setReservaPreview(reserva);
-      const facturasList = Array.isArray(facturasRes)
-        ? facturasRes
-        : facturasRes?.items ?? [];
+      const facturasList = filterSafeList(
+        Array.isArray(facturasRes) ? facturasRes : facturasRes?.items ?? []
+      );
       setFacturasReserva(facturasList);
 
       const estadias = normalizeEstadiasList(estadiasRes, { pagina: 1, limite: 200 }).items.filter(
@@ -348,15 +348,17 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
         {detalle.length === 0 ? (
           <Text style={styles.muted}>Sin líneas de detalle.</Text>
         ) : (
-          detalle.map((line, index) => (
+          detalle.map((line, index) =>
+            line ? (
             <View key={line.facturaDetalleGuid ?? index} style={styles.lineCard}>
-              <Text style={styles.lineTitle}>{line.descripcion}</Text>
+              <Text style={styles.lineTitle}>{line.descripcion ?? "-"}</Text>
               <Text style={styles.lineMeta}>
-                Cant: {line.cantidad} · PU: {formatFacturaMoney(line.precioUnitario)} · Total:{" "}
+                Cant: {line.cantidad ?? "-"} · PU: {formatFacturaMoney(line.precioUnitario)} · Total:{" "}
                 {formatFacturaMoney(line.total)}
               </Text>
             </View>
-          ))
+            ) : null
+          )
         )}
       </AdminDetailSection>
 
@@ -364,14 +366,16 @@ export default function AdminFacturaDetailScreen({ navigation, route }) {
         {pagos.length === 0 ? (
           <Text style={styles.muted}>Sin pagos registrados.</Text>
         ) : (
-          pagos.map((pago, index) => (
+          pagos.map((pago, index) =>
+            pago ? (
             <View key={pago.pagoGuid ?? index} style={styles.lineCard}>
               <Text style={styles.lineTitle}>{formatFacturaMoney(pago.monto)}</Text>
               <Text style={styles.lineMeta}>
-                {pago.metodoPago} · {pago.estadoPago} · {pago.fechaPagoUtc ?? "-"}
+                {pago.metodoPago ?? "-"} · {pago.estadoPago ?? "-"} · {pago.fechaPagoUtc ?? "-"}
               </Text>
             </View>
-          ))
+            ) : null
+          )
         )}
       </AdminDetailSection>
 

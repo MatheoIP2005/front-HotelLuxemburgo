@@ -1,11 +1,31 @@
 import { Alert } from "react-native";
 import { normalizeCollectionPayload } from "../../../src/shared/utils/api";
 
+export const filterSafeList = (items) =>
+  (Array.isArray(items) ? items : []).filter(Boolean);
+
+export const withSafeItems = (collection) => ({
+  ...collection,
+  items: filterSafeList(collection?.items),
+});
+
 export const normalizeAdminList = (response, params = {}) =>
-  normalizeCollectionPayload(response, {
-    pagina: Number(params?.pagina) || 1,
-    limite: Number(params?.limite) || 50,
-  });
+  withSafeItems(
+    normalizeCollectionPayload(response, {
+      pagina: Number(params?.pagina) || 1,
+      limite: Number(params?.limite) || 50,
+    })
+  );
+
+export const ensureLoadedEntity = (
+  data,
+  setError,
+  message = "Registro no encontrado."
+) => {
+  if (data) return true;
+  setError(message);
+  return false;
+};
 
 export const confirmAdminAction = (title, message) =>
   new Promise((resolve) => {
@@ -22,3 +42,6 @@ export const pickGuid = (item, ...keys) => {
   }
   return null;
 };
+
+export const createSafeRenderItem = (renderItem) => (props) =>
+  props.item ? renderItem(props) : null;

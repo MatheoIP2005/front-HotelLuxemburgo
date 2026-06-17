@@ -81,11 +81,12 @@ export default function AdminSucursalesScreen({ navigation }) {
         </Pressable>
       }
       renderItem={({ item }) => {
+        if (!item) return null;
         const guid = pickGuid(item, "sucursalGuid", "sucursal_guid");
         return (
           <AdminListCard
             title={item.nombreSucursal || "Sin nombre"}
-            subtitle={`${item.codigoSucursal || "-"} · ${item.ciudad || "-"}`}
+            subtitle={`${item.codigoSucursal ?? item.codigo_sucursal ?? "-"} · ${item.ciudad || "-"}`}
             badge={item.estadoSucursal || "ACT"}
             meta={`${item.tipoAlojamiento || "hotel"} · ${item.estrellas ?? "-"}★`}
             onPress={() => navigation.navigate("AdminSucursalForm", { id: guid })}

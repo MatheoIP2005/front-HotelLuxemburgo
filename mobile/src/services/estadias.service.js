@@ -1,30 +1,37 @@
 import internalApi from "../api/internalApi";
 import { extractApiPayload } from "../../../src/shared/utils/api";
 
-const toEstadiaViewModel = (item = {}) => ({
-  ...item,
-  estadiaGuid: item.estadiaGuid ?? null,
-  reservaGuid: item.reservaGuid ?? null,
-  reservaHabitacionGuid: item.reservaHabitacionGuid ?? null,
-  clienteGuid: item.clienteGuid ?? null,
-  sucursalGuid: item.sucursalGuid ?? null,
-  habitacionGuid: item.habitacionGuid ?? null,
-  idHabitacion: item.idHabitacion ?? item.habitacionGuid ?? null,
-  estadoEstadia: item.estadoEstadia ?? item.estado ?? null,
-  checkinUtc: item.checkinUtc ?? item.fechaCheckinUtc ?? null,
-  checkoutUtc: item.checkoutUtc ?? item.fechaCheckoutUtc ?? null,
-  requiereMantenimiento: Boolean(item.requiereMantenimiento),
-});
+const toEstadiaViewModel = (item) => {
+  if (!item) return null;
+
+  return {
+    ...item,
+    estadiaGuid: item.estadiaGuid ?? null,
+    reservaGuid: item.reservaGuid ?? null,
+    reservaHabitacionGuid: item.reservaHabitacionGuid ?? null,
+    clienteGuid: item.clienteGuid ?? null,
+    sucursalGuid: item.sucursalGuid ?? null,
+    habitacionGuid: item.habitacionGuid ?? null,
+    idHabitacion: item.idHabitacion ?? item.habitacionGuid ?? null,
+    estadoEstadia: item.estadoEstadia ?? item.estado ?? null,
+    checkinUtc: item.checkinUtc ?? item.fechaCheckinUtc ?? null,
+    checkoutUtc: item.checkoutUtc ?? item.fechaCheckoutUtc ?? null,
+    requiereMantenimiento: Boolean(item.requiereMantenimiento),
+  };
+};
+
+const mapEstadiaItems = (items) =>
+  (Array.isArray(items) ? items : []).filter(Boolean).map(toEstadiaViewModel).filter(Boolean);
 
 const toEstadiaCollection = (payload) => {
   if (Array.isArray(payload)) {
-    return payload.map((item) => toEstadiaViewModel(item));
+    return mapEstadiaItems(payload);
   }
 
   if (payload && Array.isArray(payload.items)) {
     return {
       ...payload,
-      items: payload.items.map((item) => toEstadiaViewModel(item)),
+      items: mapEstadiaItems(payload.items),
     };
   }
 

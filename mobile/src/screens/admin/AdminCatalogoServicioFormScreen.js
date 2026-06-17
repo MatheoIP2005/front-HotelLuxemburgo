@@ -14,10 +14,11 @@ import {
 import { getSucursales } from "../../services/sucursales.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { CATALOGO_ESTADOS, CATALOGO_TIPOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
 import { sanitizeDecimalInput } from "../../utils/numeric";
 import { sanitizeTimeInput } from "../../utils/text";
 import { validateCatalogoForm } from "../../utils/catalogo";
+import { formatSucursalLabel } from "../../utils/sucursales";
 
 const EMPTY_FORM = {
   idSucursal: "",
@@ -50,8 +51,8 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
   const sucursalOptions = useMemo(
     () =>
       sucursales.map((s) => ({
-        value: String(s.idSucursal ?? s.id ?? ""),
-        label: `${s.nombreSucursal} (${s.codigoSucursal})`,
+        value: String(s?.idSucursal ?? s?.id ?? ""),
+        label: formatSucursalLabel(s),
       })),
     [sucursales]
   );
@@ -69,6 +70,7 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getCatalogoItem(id);
+        if (!ensureLoadedEntity(data, setError, "Registro no encontrado.")) return;
         setForm({
           idSucursal: String(data.idSucursal ?? ""),
           codigoCatalogo: data.codigoCatalogo ?? "",

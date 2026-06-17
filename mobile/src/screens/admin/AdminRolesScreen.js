@@ -5,7 +5,7 @@ import AdminListScreen from "../../components/admin/AdminListScreen";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import { deleteRol, getRoles, inhabilitarRol } from "../../services/roles.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { confirmAdminAction } from "../../utils/adminCollection";
+import { confirmAdminAction, filterSafeList } from "../../utils/adminCollection";
 import { getRolId } from "../../utils/roles";
 import { colors } from "../../styles/theme";
 
@@ -22,7 +22,9 @@ export default function AdminRolesScreen({ navigation }) {
     setError("");
     try {
       const response = await getRoles();
-      setItems(Array.isArray(response) ? response : response?.items ?? []);
+      setItems(
+        filterSafeList(Array.isArray(response) ? response : response?.items ?? [])
+      );
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudieron cargar los roles."));
       setItems([]);

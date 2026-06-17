@@ -8,11 +8,12 @@ import { getCatalogo } from "../../services/catalogoServicios.service";
 import { addCargoEstadia, getEstadia } from "../../services/estadias.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
 import {
   buildCargoEstadiaPayload,
   validateCargoEstadiaForm,
 } from "../../utils/cargosEstadia";
+import { formatCatalogoLabel } from "../../utils/catalogo";
 import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
@@ -45,6 +46,7 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
           getCatalogo({ pagina: 1, limite: 200 }),
         ]);
         setEstadia(estadiaData);
+        if (!ensureLoadedEntity(estadiaData, setError, "Estadía no encontrada.")) return;
         setCatalogo(normalizeAdminList(catalogoRes).items);
       } catch (err) {
         setError(extractApiErrorMessage(err, "No se pudo cargar datos."));
@@ -58,8 +60,8 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
   const catalogoOptions = useMemo(
     () =>
       catalogo.map((item) => ({
-        value: item.catalogoGuid,
-        label: `${item.nombreCatalogo} · $${Number(item.precioBase ?? 0).toFixed(2)}`,
+        value: item?.catalogoGuid ?? "",
+        label: formatCatalogoLabel(item),
       })),
     [catalogo]
   );

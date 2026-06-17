@@ -44,9 +44,9 @@ export default function BaseSelectField({
 
   const selectableOptions = useMemo(
     () =>
-      options.filter(
-        (option) => !isPlaceholderOption(option, emptyOptionIsPlaceholder)
-      ),
+      options
+        .filter(Boolean)
+        .filter((option) => !isPlaceholderOption(option, emptyOptionIsPlaceholder)),
     [options, emptyOptionIsPlaceholder]
   );
 
@@ -174,6 +174,7 @@ export default function BaseSelectField({
                 keyboardShouldPersistTaps="handled"
                 style={listStyle}
                 renderItem={({ item }) => {
+                  if (!item) return null;
                   const selected = item.value === value;
                   return (
                     <Pressable

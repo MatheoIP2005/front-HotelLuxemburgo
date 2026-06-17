@@ -10,7 +10,15 @@ const TARIFA_LIMITS = {
   nombre: 150,
 };
 
-export const validateTarifaForm = (form, isEdit = false, minLocalDate) => {
+export const formatTarifaLabel = (tarifa) => {
+  if (!tarifa) return "Sin tarifa";
+  const codigo = tarifa.codigoTarifa ?? "-";
+  const nombre = tarifa.nombreTarifa ?? "Sin nombre";
+  const precio = Number(tarifa.precioPorNoche ?? 0).toFixed(2);
+  return `${codigo} · ${nombre} · $${precio}`;
+};
+
+export const validateTarifaForm = (form = {}, isEdit = false, minLocalDate) => {
   const errors = {};
   const codigoTarifa = String(form.codigoTarifa ?? "").trim();
   const nombreTarifa = String(form.nombreTarifa ?? "").trim();

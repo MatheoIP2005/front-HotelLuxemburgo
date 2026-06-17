@@ -19,7 +19,7 @@ import {
   removerRolUsuario,
 } from "../../services/usuarios.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
-import { confirmAdminAction } from "../../utils/adminCollection";
+import { confirmAdminAction, filterSafeList } from "../../utils/adminCollection";
 import { getRolId } from "../../utils/roles";
 import { getUsuarioDisplayName } from "../../utils/usuarios";
 import { colors, shadow } from "../../styles/theme";
@@ -46,8 +46,12 @@ export default function AdminUsuarioRolesScreen({ navigation, route }) {
         getUsuarioRoles(id).catch(() => []),
       ]);
       setUsuario(userData);
-      setRolesCatalog(Array.isArray(catalog) ? catalog : catalog?.items ?? []);
-      setAssignedRoles(Array.isArray(userRoles) ? userRoles : userRoles?.items ?? []);
+      setRolesCatalog(
+        filterSafeList(Array.isArray(catalog) ? catalog : catalog?.items ?? [])
+      );
+      setAssignedRoles(
+        filterSafeList(Array.isArray(userRoles) ? userRoles : userRoles?.items ?? [])
+      );
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudieron cargar los roles del usuario."));
     } finally {
@@ -62,10 +66,10 @@ export default function AdminUsuarioRolesScreen({ navigation, route }) {
   const availableOptions = useMemo(() => {
     const assignedIds = new Set(assignedRoles.map((r) => String(getRolId(r))));
     return rolesCatalog
-      .filter((rol) => !assignedIds.has(String(getRolId(rol))))
+      .filter((rol) => rol && !assignedIds.has(String(getRolId(rol))))
       .map((rol) => ({
         value: getRolId(rol),
-        label: rol.nombreRol || String(getRolId(rol)),
+        label: rol?.nombreRol || String(getRolId(rol)),
       }));
   }, [assignedRoles, rolesCatalog]);
 
@@ -140,7 +144,8 @@ export default function AdminUsuarioRolesScreen({ navigation, route }) {
         {assignedRoles.length === 0 ? (
           <Text style={styles.muted}>Este usuario no tiene roles asignados.</Text>
         ) : (
-          assignedRoles.map((rol) => (
+          assignedRoles.map((rol) =>
+            rol ? (
             <View key={getRolId(rol)} style={styles.roleCard}>
               <View style={styles.roleInfo}>
                 <Text style={styles.roleName}>{rol.nombreRol || "-"}</Text>
@@ -154,7 +159,8 @@ export default function AdminUsuarioRolesScreen({ navigation, route }) {
                 <Text style={styles.removeText}>Quitar</Text>
               </Pressable>
             </View>
-          ))
+            ) : null
+          )
         )}
       </AdminDetailSection>
     </ScrollView>

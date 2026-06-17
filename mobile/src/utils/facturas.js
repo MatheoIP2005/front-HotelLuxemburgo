@@ -1,4 +1,5 @@
 import { normalizeCollectionPayload } from "../../../src/shared/utils/api";
+import { filterSafeList, withSafeItems } from "./adminCollection";
 import { formatReservaMoney } from "./reservas";
 
 export const getFacturaId = (factura) =>
@@ -7,10 +8,12 @@ export const getFacturaId = (factura) =>
 export const formatFacturaMoney = formatReservaMoney;
 
 export const normalizeFacturasList = (response, params = {}) =>
-  normalizeCollectionPayload(response, {
-    pagina: Number(params?.pagina) || 1,
-    limite: Number(params?.limite) || 20,
-  });
+  withSafeItems(
+    normalizeCollectionPayload(response, {
+      pagina: Number(params?.pagina) || 1,
+      limite: Number(params?.limite) || 20,
+    })
+  );
 
 const getDiffDays = (start, end) => {
   if (!start || !end) return 1;
@@ -22,7 +25,9 @@ const getDiffDays = (start, end) => {
 };
 
 export const buildReservaFacturaItems = (reserva) => {
-  const habitaciones = Array.isArray(reserva?.habitaciones) ? reserva.habitaciones : [];
+  const habitaciones = filterSafeList(
+    Array.isArray(reserva?.habitaciones) ? reserva.habitaciones : []
+  );
   if (habitaciones.length === 0) return [];
 
   return habitaciones.map((item, index) => {
@@ -56,8 +61,8 @@ export const buildReservaFacturaItems = (reserva) => {
 };
 
 export const buildFinalFacturaItems = (cargos = []) =>
-  cargos
-    .filter((cargo) => cargo.estadoCargo === "PEN")
+  filterSafeList(cargos)
+    .filter((cargo) => cargo?.estadoCargo === "PEN")
     .map((cargo) => ({
       descripcion: cargo.descripcionCargo ?? "Cargo de estadía",
       cantidad: Number(cargo.cantidad ?? 1),

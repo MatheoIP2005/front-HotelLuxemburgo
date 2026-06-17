@@ -12,13 +12,15 @@ import { getTiposHabitacion } from "../../services/tiposHabitacion.service";
 import { createTarifa, getTarifa, updateTarifa } from "../../services/tarifas.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { TARIFA_CANALES, TARIFA_ESTADOS } from "../../../../src/utils/constraints";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
 import { getTodayIsoDate } from "../../utils/booking";
 import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
 } from "../../utils/numeric";
-import { buildTarifaPayload, validateTarifaForm } from "../../utils/tarifas";
+import { buildTarifaPayload, formatTarifaLabel, validateTarifaForm } from "../../utils/tarifas";
+import { formatSucursalLabel } from "../../utils/sucursales";
+import { formatTipoHabitacionLabel } from "../../utils/tiposHabitacion";
 
 const TARIFA_LIMITS = {
   codigo: 30,
@@ -60,8 +62,8 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
   const sucursalOptions = useMemo(
     () =>
       sucursales.map((s) => ({
-        value: String(s.idSucursal ?? s.id ?? ""),
-        label: `${s.nombreSucursal} (${s.codigoSucursal})`,
+        value: String(s?.idSucursal ?? s?.id ?? ""),
+        label: formatSucursalLabel(s),
       })),
     [sucursales]
   );
@@ -69,8 +71,8 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
   const tipoOptions = useMemo(
     () =>
       tipos.map((t) => ({
-        value: String(t.idTipoHabitacion ?? t.id ?? ""),
-        label: `${t.nombreTipoHabitacion} (${t.codigoTipoHabitacion})`,
+        value: String(t?.idTipoHabitacion ?? t?.id ?? ""),
+        label: formatTipoHabitacionLabel(t),
       })),
     [tipos]
   );
@@ -99,6 +101,7 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getTarifa(id);
+        if (!ensureLoadedEntity(data, setError, "Tarifa no encontrada.")) return;
         setForm({
           codigoTarifa: data.codigoTarifa ?? "",
           nombreTarifa: data.nombreTarifa ?? "",

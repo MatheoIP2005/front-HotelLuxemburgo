@@ -1,8 +1,9 @@
 import { MAX_LENGTHS, ROLE_STATES } from "../../../src/utils/constraints";
+import { filterSafeList } from "./adminCollection";
 
 export const getRolId = (rol) => rol?.rolGuid ?? null;
 
-export const validateRolForm = (form, isEdit = false) => {
+export const validateRolForm = (form = {}, isEdit = false) => {
   const errors = {};
   const nombreRol = String(form.nombreRol ?? "").trim();
   const descripcionRol = String(form.descripcionRol ?? "").trim();
@@ -33,12 +34,13 @@ export const validatePermisoId = (value) => {
   return "";
 };
 
-export const normalizePermisosList = (response) => {
-  if (Array.isArray(response)) return response;
-  return response?.items ?? [];
-};
+export const normalizePermisosList = (response) =>
+  filterSafeList(Array.isArray(response) ? response : response?.items ?? []);
 
 export const permisoToOption = (permiso) => {
+  if (permiso == null || permiso === "") {
+    return { value: "", label: "Sin permiso" };
+  }
   const value = typeof permiso === "string" ? permiso.trim() : String(permiso);
   return { value, label: value };
 };

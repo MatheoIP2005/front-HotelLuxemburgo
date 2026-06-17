@@ -15,6 +15,7 @@ import { VALORACION_MODERATION_STATES } from "../../../../src/utils/constraints"
 import { confirmAdminAction, normalizeAdminList, pickGuid } from "../../utils/adminCollection";
 import SelectField from "../../components/admin/SelectField";
 import { colors } from "../../styles/theme";
+import { formatSucursalLabel } from "../../utils/sucursales";
 
 export default function AdminValoracionesScreen({ navigation }) {
   const { bootstrapping, isAuthenticated } = useRequireAuth(navigation);
@@ -31,7 +32,7 @@ export default function AdminValoracionesScreen({ navigation }) {
     () =>
       sucursales.map((s) => ({
         value: pickGuid(s, "sucursalGuid", "sucursal_guid"),
-        label: `${s.nombreSucursal} (${s.codigoSucursal})`,
+        label: formatSucursalLabel(s),
       })),
     [sucursales]
   );

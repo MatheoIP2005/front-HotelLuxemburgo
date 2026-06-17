@@ -8,6 +8,7 @@ import { createRol, getRol, updateRol } from "../../services/roles.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS, ROLE_STATES } from "../../../../src/utils/constraints";
 import { validateRolForm } from "../../utils/roles";
+import { ensureLoadedEntity } from "../../utils/adminCollection";
 import { colors } from "../../styles/theme";
 
 const EMPTY_FORM = {
@@ -34,6 +35,7 @@ export default function AdminRolFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getRol(id);
+        if (!ensureLoadedEntity(data, setError, "Rol no encontrado.")) return;
         setForm({
           nombreRol: data.nombreRol ?? "",
           descripcionRol: data.descripcionRol ?? "",

@@ -37,7 +37,10 @@ export default function AdminPagoFormScreen({ navigation, route }) {
   const payableFacturas = useMemo(
     () =>
       facturas.filter(
-        (item) => item.estado === "EMI" && Number(item.saldoPendiente ?? 0) > 0
+        (item) =>
+          item &&
+          item.estado === "EMI" &&
+          Number(item.saldoPendiente ?? 0) > 0
       ),
     [facturas]
   );
@@ -48,7 +51,7 @@ export default function AdminPagoFormScreen({ navigation, route }) {
         const id = getFacturaId(item);
         return {
           value: id,
-          label: `${item.numeroFactura || "Sin número"} · Saldo $${Number(item.saldoPendiente ?? 0).toFixed(2)}`,
+          label: `${item?.numeroFactura || "Sin número"} · Saldo $${Number(item?.saldoPendiente ?? 0).toFixed(2)}`,
         };
       }),
     [payableFacturas]

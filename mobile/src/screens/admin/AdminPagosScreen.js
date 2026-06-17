@@ -5,9 +5,9 @@ import AdminListScreen from "../../components/admin/AdminListScreen";
 import SelectField from "../../components/admin/SelectField";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import { aprobarPago, getPagos, updateEstadoPago } from "../../services/pagos.service";
-import { extractApiErrorMessage, normalizeCollectionPayload } from "../../../../src/shared/utils/api";
+import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { PAGO_ESTADOS, PAGO_METODOS } from "../../../../src/utils/constraints";
-import { confirmAdminAction } from "../../utils/adminCollection";
+import { confirmAdminAction, normalizeAdminList } from "../../utils/adminCollection";
 import { formatFacturaMoney } from "../../utils/facturas";
 import { colors } from "../../styles/theme";
 
@@ -38,11 +38,11 @@ export default function AdminPagosScreen({ navigation }) {
           Object.entries(query).filter(([, value]) => String(value || "").trim() !== "")
         );
         const response = await getPagos({ pagina: 1, limite: 100, ...params });
-        const collection = normalizeCollectionPayload(response, { pagina: 1, limite: 100 });
+        const collection = normalizeAdminList(response, { pagina: 1, limite: 100 });
         setItems(collection.items);
         setEstadoDraft(
           Object.fromEntries(
-            collection.items.map((item) => [item.pagoGuid, item.estadoPago ?? "PEN"])
+            collection.items.map((item) => [item?.pagoGuid, item?.estadoPago ?? "PEN"])
           )
         );
       } catch (err) {

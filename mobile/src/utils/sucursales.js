@@ -9,7 +9,15 @@ import { parsePositiveInteger } from "./numeric";
 
 const trim = (value) => String(value ?? "").trim();
 
-export const validateSucursalForm = (form) => {
+export const formatSucursalLabel = (sucursal) => {
+  if (!sucursal) return "Sin sucursal";
+  const nombre =
+    sucursal.nombreSucursal ?? sucursal.nombre_sucursal ?? "Sin nombre";
+  const codigo = sucursal.codigoSucursal ?? sucursal.codigo_sucursal ?? "-";
+  return `${nombre} (${codigo})`;
+};
+
+export const validateSucursalForm = (form = {}) => {
   const errors = {};
   const codigoSucursal = trim(form.codigoSucursal);
   const nombreSucursal = trim(form.nombreSucursal);

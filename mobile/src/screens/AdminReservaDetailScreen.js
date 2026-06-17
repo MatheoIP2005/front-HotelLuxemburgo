@@ -21,6 +21,7 @@ import { extractApiErrorMessage } from "../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../src/utils/constraints";
 import { getClienteDisplayName } from "../utils/clientes";
 import { normalizeAdminList, pickGuid } from "../utils/adminCollection";
+import { formatSucursalLabel } from "../utils/sucursales";
 import { validateMotivoCancelacion } from "../utils/text";
 import {
   canCancelReserva,
@@ -92,7 +93,7 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
       (s) => pickGuid(s, "sucursalGuid", "sucursal_guid") === String(guid)
     );
     if (!sucursal) return guid || "-";
-    return `${sucursal.nombreSucursal || ""} (${sucursal.codigoSucursal || "-"})`.trim();
+    return formatSucursalLabel(sucursal);
   }, [reserva, sucursales]);
 
   const handleConfirmar = () => {
@@ -156,7 +157,9 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
   }
 
   const estado = reserva.estadoReserva;
-  const habitaciones = Array.isArray(reserva.habitaciones) ? reserva.habitaciones : [];
+  const habitaciones = (Array.isArray(reserva.habitaciones) ? reserva.habitaciones : []).filter(
+    Boolean
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -190,27 +193,27 @@ export default function AdminReservaDetailScreen({ navigation, route }) {
           <Text style={styles.muted}>Sin habitaciones registradas.</Text>
         ) : (
           habitaciones.map((item, index) => (
-            <View key={String(item.reservaHabitacionGuid ?? index)} style={styles.lineItem}>
+            <View key={String(item?.reservaHabitacionGuid ?? index)} style={styles.lineItem}>
               <Text style={styles.lineTitle}>
                 Habitación{" "}
-                {item.numeroHabitacion ?? item.habitacionNumero ?? index + 1}
+                {item?.numeroHabitacion ?? item?.habitacionNumero ?? index + 1}
               </Text>
               <Text style={styles.muted}>
-                Adultos: {item.numAdultos ?? "-"} · Niños: {item.numNinos ?? 0}
+                Adultos: {item?.numAdultos ?? "-"} · Niños: {item?.numNinos ?? 0}
               </Text>
               <Text style={styles.muted}>
-                {formatReservaDate(item.fechaInicio ?? reserva.fechaInicio)} →{" "}
-                {formatReservaDate(item.fechaFin ?? reserva.fechaFin)}
+                {formatReservaDate(item?.fechaInicio ?? reserva.fechaInicio)} →{" "}
+                {formatReservaDate(item?.fechaFin ?? reserva.fechaFin)}
               </Text>
               <Text style={styles.muted}>
-                Precio/noche: {formatReservaMoney(item.precioNocheAplicado)}
+                Precio/noche: {formatReservaMoney(item?.precioNocheAplicado)}
               </Text>
               <Text style={styles.muted}>
-                Subtotal: {formatReservaMoney(item.subtotalLinea)} · IVA:{" "}
-                {formatReservaMoney(item.valorIvaLinea)}
+                Subtotal: {formatReservaMoney(item?.subtotalLinea)} · IVA:{" "}
+                {formatReservaMoney(item?.valorIvaLinea)}
               </Text>
               <Text style={styles.lineTotal}>
-                Total línea: {formatReservaMoney(item.totalLinea ?? item.precioNocheAplicado)}
+                Total línea: {formatReservaMoney(item?.totalLinea ?? item?.precioNocheAplicado)}
               </Text>
             </View>
           ))

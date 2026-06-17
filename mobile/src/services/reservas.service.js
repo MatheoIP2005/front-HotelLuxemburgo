@@ -55,7 +55,7 @@ const buildReservaHabitacionPayload = (item = {}, reserva = {}) => {
 
 const toReservaPayload = (data = {}) => {
   const habitaciones = Array.isArray(data.habitaciones)
-    ? data.habitaciones.map((item) => buildReservaHabitacionPayload(item, data))
+    ? data.habitaciones.filter(Boolean).map((item) => buildReservaHabitacionPayload(item, data))
     : [];
 
   const subtotalReserva = roundMoney(

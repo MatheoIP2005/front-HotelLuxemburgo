@@ -28,10 +28,10 @@ export default function AdminHomeScreen({ navigation }) {
       const response = await getReservas({ pagina: 1, limite: 100 });
       const collection = normalizeReservasList(response, { pagina: 1, limite: 100 });
       const pendientes = collection.items.filter(
-        (item) => String(item.estadoReserva || "").toUpperCase() === "PEN"
+        (item) => item && String(item.estadoReserva || "").toUpperCase() === "PEN"
       ).length;
       const confirmadas = collection.items.filter(
-        (item) => String(item.estadoReserva || "").toUpperCase() === "CON"
+        (item) => item && String(item.estadoReserva || "").toUpperCase() === "CON"
       ).length;
 
       setStats({

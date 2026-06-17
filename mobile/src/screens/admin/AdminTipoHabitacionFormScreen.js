@@ -26,7 +26,7 @@ import {
 } from "../../services/tipoHabitacionImagenes.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { CATALOGO_TIPOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity, filterSafeList } from "../../utils/adminCollection";
 import {
   buildTipoHabitacionPayload,
   getTipoCapacidadTotal,
@@ -101,6 +101,7 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
       setLoading(true);
       try {
         const data = await getTipoHabitacion(id);
+        if (!ensureLoadedEntity(data, setError, "Tipo de habitación no encontrado.")) return;
         setForm({
           codigoTipoHabitacion: data.codigoTipoHabitacion ?? "",
           nombreTipoHabitacion: data.nombreTipoHabitacion ?? "",
@@ -117,8 +118,8 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
           getTipoHabitacionImagenes(id),
           getTipoHabitacionAmenidades(id),
         ]);
-        setImagenes(Array.isArray(imgs) ? imgs : imgs?.items ?? []);
-        setAmenidades(Array.isArray(ams) ? ams : ams?.items ?? []);
+        setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
+        setAmenidades(filterSafeList(Array.isArray(ams) ? ams : ams?.items ?? []));
       } catch (err) {
         setError(extractApiErrorMessage(err, "No se pudo cargar el tipo."));
       } finally {
@@ -210,7 +211,7 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
         esPrincipal: imagenForm.esPrincipal,
       });
       const imgs = await getTipoHabitacionImagenes(id);
-      setImagenes(Array.isArray(imgs) ? imgs : imgs?.items ?? []);
+      setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
       setImagenForm(EMPTY_IMAGE);
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudo agregar imagen."));
@@ -222,7 +223,7 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
     try {
       await asignarAmenidadTipoHabitacion(id, selectedAmenidadGuid);
       const ams = await getTipoHabitacionAmenidades(id);
-      setAmenidades(Array.isArray(ams) ? ams : ams?.items ?? []);
+      setAmenidades(filterSafeList(Array.isArray(ams) ? ams : ams?.items ?? []));
       setSelectedAmenidadGuid("");
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudo asignar amenidad."));
@@ -230,10 +231,10 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
   };
 
   const amenidadOptions = catalogoAmenidades
-    .filter((c) => CATALOGO_TIPOS.includes(c.tipoCatalogo ?? "AME"))
+    .filter((c) => c && CATALOGO_TIPOS.includes(c.tipoCatalogo ?? "AME"))
     .map((c) => ({
-      value: c.catalogoGuid,
-      label: c.nombreCatalogo || c.codigoCatalogo,
+      value: c.catalogoGuid ?? "",
+      label: c.nombreCatalogo || c.codigoCatalogo || "Sin nombre",
     }));
 
   if (loading) {
@@ -283,15 +284,16 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
 
       {isEdit ? (
         <AdminDetailSection title="Imágenes">
-          {imagenes.map((img) => (
-            <View key={String(img.id ?? img.urlImagen)} style={styles.row}>
-              <Text style={styles.small} numberOfLines={2}>{img.urlImagen}</Text>
+          {imagenes.map((img, index) =>
+            img ? (
+            <View key={String(img.id ?? img.urlImagen ?? index)} style={styles.row}>
+              <Text style={styles.small} numberOfLines={2}>{img.urlImagen ?? "-"}</Text>
               <Text
                 style={styles.deleteLink}
                 onPress={() =>
                   deleteTipoHabitacionImagen(id, img.id ?? img.idTipoHabitacionImagen).then(
                     () => getTipoHabitacionImagenes(id).then((r) =>
-                      setImagenes(Array.isArray(r) ? r : r?.items ?? [])
+                      setImagenes(filterSafeList(Array.isArray(r) ? r : r?.items ?? []))
                     )
                   )
                 }
@@ -299,7 +301,8 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
                 Eliminar
               </Text>
             </View>
-          ))}
+            ) : null
+          )}
           <Pressable
             style={[styles.selectImageBtn, uploadingImage && styles.disabledBtn]}
             onPress={onSelectImage}
@@ -321,15 +324,16 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
 
       {isEdit ? (
         <AdminDetailSection title="Amenidades">
-          {amenidades.map((a) => (
-            <View key={String(a.id ?? a.catalogoGuid)} style={styles.row}>
-              <Text style={styles.small}>{a.nombreCatalogo ?? a.catalogoGuid}</Text>
+          {amenidades.map((a, index) =>
+            a ? (
+            <View key={String(a.id ?? a.catalogoGuid ?? index)} style={styles.row}>
+              <Text style={styles.small}>{a.nombreCatalogo ?? a.catalogoGuid ?? "-"}</Text>
               <Text
                 style={styles.deleteLink}
                 onPress={() =>
                   removerAmenidadTipoHabitacion(id, a.id).then(() =>
                     getTipoHabitacionAmenidades(id).then((r) =>
-                      setAmenidades(Array.isArray(r) ? r : r?.items ?? [])
+                      setAmenidades(filterSafeList(Array.isArray(r) ? r : r?.items ?? []))
                     )
                   )
                 }
@@ -337,7 +341,8 @@ export default function AdminTipoHabitacionFormScreen({ navigation, route }) {
                 Quitar
               </Text>
             </View>
-          ))}
+            ) : null
+          )}
           <SelectField
             label="Asignar amenidad"
             value={selectedAmenidadGuid}

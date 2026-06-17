@@ -29,6 +29,9 @@ import {
   validateReservaForm,
 } from "../../utils/reservas";
 import { colors } from "../../styles/theme";
+import { formatSucursalLabel } from "../../utils/sucursales";
+import { formatTarifaLabel } from "../../utils/tarifas";
+import { formatHabitacionDisponibleLabel } from "../../utils/habitaciones";
 
 const createEmptyLinea = () => ({
   habitacionGuid: "",
@@ -144,7 +147,7 @@ export default function AdminReservaFormScreen({ navigation }) {
     () =>
       sucursales.map((s) => ({
         value: pickGuid(s, "sucursalGuid", "sucursal_guid"),
-        label: `${s.nombreSucursal} (${s.codigoSucursal})`,
+        label: formatSucursalLabel(s),
       })),
     [sucursales]
   );
@@ -153,7 +156,7 @@ export default function AdminReservaFormScreen({ navigation }) {
     () =>
       tarifasPorSucursal.map((t) => ({
         value: pickGuid(t, "tarifaGuid", "tarifa_guid"),
-        label: `${t.codigoTarifa} · ${t.nombreTarifa} · $${t.precioPorNoche}`,
+        label: formatTarifaLabel(t),
       })),
     [tarifasPorSucursal]
   );
@@ -235,7 +238,18 @@ export default function AdminReservaFormScreen({ navigation }) {
     const { formErrors, lineErrors, hasLineErrors } = validate();
     setFieldErrors(formErrors);
     setLineFieldErrors(lineErrors);
-    if (Object.keys(formErrors).length || hasLineErrors) return;
+    if (Object.keys(formErrors).length || hasLineErrors) {
+      const firstFormError = formErrors.clienteGuid
+        ? "Selecciona un cliente válido."
+        : formErrors.sucursalGuid
+          ? "Selecciona una sucursal válida."
+          : formErrors.fechaInicio || formErrors.fechaFin || formErrors.habitaciones;
+
+      if (firstFormError) {
+        Alert.alert("Revisa el formulario", firstFormError);
+      }
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -333,7 +347,7 @@ export default function AdminReservaFormScreen({ navigation }) {
         const lineErrors = lineFieldErrors[index] ?? {};
         const habOptions = getHabitacionesParaLinea(index).map((h) => ({
           value: h.habitacionGuid,
-          label: `Hab. ${h.numeroHabitacion}${h.tipoNombre ? ` · ${h.tipoNombre}` : ""}`,
+          label: formatHabitacionDisponibleLabel(h),
         }));
 
         return (

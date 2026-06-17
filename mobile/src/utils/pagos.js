@@ -1,7 +1,7 @@
 import { PAGO_METODOS } from "./constraints";
 import { parsePositiveNumber } from "./numeric";
 
-export const validatePagoForm = (form, selectedFactura) => {
+export const validatePagoForm = (form = {}, selectedFactura) => {
   const errors = {};
   const monto = parsePositiveNumber(form.monto);
 

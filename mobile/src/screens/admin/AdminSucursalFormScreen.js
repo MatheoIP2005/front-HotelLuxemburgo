@@ -28,6 +28,7 @@ import { colors } from "../../styles/theme";
 import { sanitizeOptionalDigits } from "../../utils/numeric";
 import { sanitizePhoneDigits, sanitizeTimeInput } from "../../utils/text";
 import { validateSucursalForm } from "../../utils/sucursales";
+import { ensureLoadedEntity, filterSafeList } from "../../utils/adminCollection";
 
 const EMPTY_FORM = {
   codigoSucursal: "",
@@ -93,6 +94,7 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
       setError("");
       try {
         const data = await getSucursal(id);
+        if (!ensureLoadedEntity(data, setError, "Sucursal no encontrada.")) return;
         setForm({
           ...EMPTY_FORM,
           codigoSucursal: data.codigoSucursal ?? "",
@@ -120,7 +122,7 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
           sePermiteFumar: Boolean(data.sePermiteFumar),
         });
         const imgs = await getSucursalImagenes(id);
-        setImagenes(Array.isArray(imgs) ? imgs : imgs?.items ?? []);
+        setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
       } catch (err) {
         setError(extractApiErrorMessage(err, "No se pudo cargar la sucursal."));
       } finally {
@@ -185,7 +187,7 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         esPrincipal: imagenForm.esPrincipal,
       });
       const imgs = await getSucursalImagenes(id);
-      setImagenes(Array.isArray(imgs) ? imgs : imgs?.items ?? []);
+      setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
       setImagenForm(EMPTY_IMAGE);
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudo agregar la imagen."));
@@ -327,10 +329,11 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
       <FormField label="Edad mínima huésped" value={form.edadMinimaHuesped} onChangeText={(v) => setField("edadMinimaHuesped", v)} keyboardType="numeric" inputMode="numeric" error={fieldErrors.edadMinimaHuesped} />
 
       <AdminDetailSection title="Imágenes">
-        {imagenes.map((img) => (
-          <View key={String(img.idSucursalImagen ?? img.urlImagen)} style={styles.imageRow}>
+        {imagenes.map((img, index) =>
+          img ? (
+          <View key={String(img.idSucursalImagen ?? img.urlImagen ?? index)} style={styles.imageRow}>
             <Text style={styles.imageUrl} numberOfLines={2}>
-              {img.urlImagen}
+              {img.urlImagen ?? "-"}
             </Text>
             {isEdit ? (
               <Text
@@ -341,7 +344,8 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
               </Text>
             ) : null}
           </View>
-        ))}
+          ) : null
+        )}
         {isEdit ? (
           <>
             <Pressable

@@ -11,6 +11,7 @@ import {
 import { getSucursales } from "../../services/sucursales.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { confirmAdminAction, normalizeAdminList, pickGuid } from "../../utils/adminCollection";
+import { formatSucursalLabel } from "../../utils/sucursales";
 import { colors } from "../../styles/theme";
 
 const ESTADO_LABELS = {
@@ -42,7 +43,7 @@ export default function AdminHabitacionesScreen({ navigation }) {
     const guid = pickGuid(habitacion, "sucursalGuid", "sucursal_guid");
     const sucursal = guid ? sucursalMap.get(guid) : null;
     if (!sucursal) return guid ? `Sucursal ${guid.slice(0, 8)}…` : "Sin sucursal";
-    return `${sucursal.nombreSucursal || ""} (${sucursal.codigoSucursal || "-"})`.trim();
+    return formatSucursalLabel(sucursal);
   };
 
   const load = useCallback(async (isRefresh = false) => {

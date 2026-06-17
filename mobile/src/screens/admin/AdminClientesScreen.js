@@ -139,7 +139,7 @@ export default function AdminClientesScreen({ navigation }) {
         return (
           <AdminListCard
             title={getClienteDisplayName(item)}
-            subtitle={`${item.tipoIdentificacion}: ${item.numeroIdentificacion}`}
+            subtitle={`${item?.tipoIdentificacion ?? "-"}: ${item?.numeroIdentificacion ?? "-"}`}
             badge={item.estado || "ACT"}
             meta={`${item.correo || "-"} · ${item.telefono || "-"}`}
             onPress={() => navigation.navigate("AdminClienteForm", { id })}

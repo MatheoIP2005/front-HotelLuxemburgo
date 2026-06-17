@@ -10,10 +10,17 @@ const TIPO_LIMITS = {
   tipoCama: 60,
 };
 
+export const formatTipoHabitacionLabel = (tipo) => {
+  if (!tipo) return "Sin tipo";
+  const nombre = tipo.nombreTipoHabitacion ?? tipo.nombre ?? "Sin nombre";
+  const codigo = tipo.codigoTipoHabitacion ?? tipo.codigo ?? "-";
+  return `${nombre} (${codigo})`;
+};
+
 export const getTipoCapacidadTotal = (form) =>
   (Number(form.capacidadAdultos) || 0) + (Number(form.capacidadNinos) || 0);
 
-export const validateTipoHabitacionForm = (form) => {
+export const validateTipoHabitacionForm = (form = {}) => {
   const errors = {};
   const codigo = String(form.codigoTipoHabitacion ?? "").trim();
   const nombre = String(form.nombreTipoHabitacion ?? "").trim();

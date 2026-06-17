@@ -3,6 +3,7 @@ import {
   resolveRoomImageUrl as resolveSharedRoomImageUrl,
 } from "../../../src/shared/utils/propertyImages";
 import { getImagesBaseUrl } from "../config/images";
+import { filterSafeList } from "./adminCollection";
 
 export const getOptionalChildrenCount = (value) =>
   value === "" || value === null || value === undefined ? 0 : Number(value);
@@ -82,15 +83,15 @@ export const resolveRoomImageUrl = (room, propiedad) =>
   resolveSharedRoomImageUrl(room, propiedad, { imagesBaseUrl: getImagesBaseUrl() });
 
 export const normalizeRoomOptions = (propiedad) => {
-  const tiposHabitacion = Array.isArray(propiedad?.tiposHabitacion)
-    ? propiedad.tiposHabitacion
-    : [];
-  const tarifasActivas = Array.isArray(propiedad?.tarifasActivas)
-    ? propiedad.tarifasActivas
-    : [];
+  const tiposHabitacion = filterSafeList(
+    Array.isArray(propiedad?.tiposHabitacion) ? propiedad.tiposHabitacion : []
+  );
+  const tarifasActivas = filterSafeList(
+    Array.isArray(propiedad?.tarifasActivas) ? propiedad.tarifasActivas : []
+  );
 
   if (tiposHabitacion.length > 0) {
-    return tiposHabitacion.map((tipo) => {
+    return tiposHabitacion.filter(Boolean).map((tipo) => {
       const tarifaRelacionada =
         tarifasActivas.find(
           (tarifa) => tarifa.tipoHabitacionGuid === tipo.tipoHabitacionGuid
@@ -122,7 +123,7 @@ export const normalizeRoomOptions = (propiedad) => {
   }
 
   if (Array.isArray(propiedad?.habitacionesDisponibles)) {
-    return propiedad.habitacionesDisponibles.map((habitacion) => ({
+    return propiedad.habitacionesDisponibles.filter(Boolean).map((habitacion) => ({
       id: habitacion.habitacionGuid ?? habitacion.tipoHabitacionGuid,
       nombre: habitacion.nombre ?? habitacion.numeroHabitacion ?? "Habitación disponible",
       descripcion: habitacion.descripcionHabitacion ?? "",

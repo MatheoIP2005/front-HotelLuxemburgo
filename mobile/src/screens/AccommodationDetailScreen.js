@@ -181,6 +181,7 @@ export default function AccommodationDetailScreen({ navigation, route }) {
         </View>
       ) : roomOptions.length > 0 ? (
         roomOptions.map((room) => {
+          if (!room) return null;
           const isSelected = selectedRoom?.id === room.id;
           const disponible = isRoomAvailableForBooking(room, habitacionesSolicitadas);
           return (

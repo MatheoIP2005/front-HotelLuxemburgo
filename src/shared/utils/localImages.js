@@ -1,5 +1,8 @@
 const trim = (value) => String(value ?? "").trim();
 
+const asObjectRecord = (record) =>
+  record !== null && typeof record === "object" ? record : {};
+
 const LOCAL_IMAGE_FILES = new Set([
   "HotelLuxemburgo.png",
   "LUX-BAN.jpeg",
@@ -128,7 +131,8 @@ const inferSucursalCodesFromText = (...parts) => {
   return inferred;
 };
 
-const collectSucursalCodeCandidates = (record = {}) => {
+const collectSucursalCodeCandidates = (record) => {
+  const source = asObjectRecord(record);
   const explicitCandidates = [];
   const inferredCandidates = [];
   const addCandidate = (target, value) => {
@@ -139,26 +143,26 @@ const collectSucursalCodeCandidates = (record = {}) => {
     if (luxCode) target.push(luxCode);
   };
 
-  addCandidate(explicitCandidates, record.codigoSucursal);
-  addCandidate(explicitCandidates, record.codigo_sucursal);
-  addCandidate(explicitCandidates, record.codigo);
-  addCandidate(explicitCandidates, record.slug);
-  addCandidate(explicitCandidates, record.sucursal?.codigoSucursal);
-  addCandidate(explicitCandidates, record.sucursal?.codigo_sucursal);
-  addCandidate(explicitCandidates, record.sucursal?.codigo);
-  addCandidate(explicitCandidates, record.sucursal?.slug);
-  addCandidate(explicitCandidates, record.hotel?.codigoSucursal);
-  addCandidate(explicitCandidates, record.hotel?.codigo);
-  addCandidate(explicitCandidates, record.propiedad?.codigoSucursal);
-  addCandidate(explicitCandidates, record.propiedad?.codigo);
+  addCandidate(explicitCandidates, source.codigoSucursal);
+  addCandidate(explicitCandidates, source.codigo_sucursal);
+  addCandidate(explicitCandidates, source.codigo);
+  addCandidate(explicitCandidates, source.slug);
+  addCandidate(explicitCandidates, source.sucursal?.codigoSucursal);
+  addCandidate(explicitCandidates, source.sucursal?.codigo_sucursal);
+  addCandidate(explicitCandidates, source.sucursal?.codigo);
+  addCandidate(explicitCandidates, source.sucursal?.slug);
+  addCandidate(explicitCandidates, source.hotel?.codigoSucursal);
+  addCandidate(explicitCandidates, source.hotel?.codigo);
+  addCandidate(explicitCandidates, source.propiedad?.codigoSucursal);
+  addCandidate(explicitCandidates, source.propiedad?.codigo);
 
   inferSucursalCodesFromText(
-    record.nombre,
-    record.nombreSucursal,
-    record.ciudad,
-    record.sucursal?.nombre,
-    record.sucursal?.nombreSucursal,
-    record.sucursal?.ciudad
+    source.nombre,
+    source.nombreSucursal,
+    source.ciudad,
+    source.sucursal?.nombre,
+    source.sucursal?.nombreSucursal,
+    source.sucursal?.ciudad
   ).forEach((value) => addCandidate(inferredCandidates, value));
 
   return [...new Set([...inferredCandidates, ...explicitCandidates])];
@@ -175,22 +179,23 @@ const inferTipoHabitacionCodeFromName = (nombre) => {
   return "";
 };
 
-const collectTipoHabitacionCodeCandidates = (record = {}) => {
+const collectTipoHabitacionCodeCandidates = (record) => {
+  const source = asObjectRecord(record);
   const candidates = [];
   const add = (value) => {
     const normalized = trim(value);
     if (normalized) candidates.push(normalized);
   };
 
-  add(record.codigoTipoHabitacion);
-  add(record.codigo_tipo_habitacion);
-  add(record.codigoTipo);
-  add(record.codigo);
-  add(record.tipoHabitacion?.codigoTipoHabitacion);
-  add(record.tipoHabitacion?.codigo_tipo_habitacion);
-  add(record.tipoHabitacion?.codigo);
-  add(inferTipoHabitacionCodeFromName(record.nombreTipoHabitacion));
-  add(inferTipoHabitacionCodeFromName(record.nombre));
+  add(source.codigoTipoHabitacion);
+  add(source.codigo_tipo_habitacion);
+  add(source.codigoTipo);
+  add(source.codigo);
+  add(source.tipoHabitacion?.codigoTipoHabitacion);
+  add(source.tipoHabitacion?.codigo_tipo_habitacion);
+  add(source.tipoHabitacion?.codigo);
+  add(inferTipoHabitacionCodeFromName(source.nombreTipoHabitacion));
+  add(inferTipoHabitacionCodeFromName(source.nombre));
 
   return [...new Set(candidates)];
 };

@@ -3,6 +3,7 @@ import { colors } from "../../styles/theme";
 import EmptyState from "./EmptyState";
 import ErrorState from "./ErrorState";
 import LoadingState from "./LoadingState";
+import { createSafeRenderItem, filterSafeList } from "../../utils/adminCollection";
 
 export default function AdminListScreen({
   title,
@@ -25,9 +26,9 @@ export default function AdminListScreen({
     <FlatList
       style={styles.page}
       contentContainerStyle={styles.content}
-      data={items}
+      data={filterSafeList(items)}
       keyExtractor={keyExtractor}
-      renderItem={renderItem}
+      renderItem={createSafeRenderItem(renderItem)}
       refreshControl={
         onRefresh ? (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

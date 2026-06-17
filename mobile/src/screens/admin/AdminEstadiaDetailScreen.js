@@ -78,6 +78,11 @@ export default function AdminEstadiaDetailScreen({ navigation, route }) {
     setError("");
     try {
       const data = await getEstadia(id);
+      if (!data) {
+        setError("Estadía no encontrada.");
+        setEstadia(null);
+        return;
+      }
       setEstadia(data);
       await loadCargos(getEstadiaId(data));
     } catch (err) {
@@ -218,14 +223,15 @@ export default function AdminEstadiaDetailScreen({ navigation, route }) {
         {!cargosLoading && cargos.length === 0 ? (
           <Text style={styles.muted}>Sin cargos registrados.</Text>
         ) : null}
-        {cargos.map((cargo) => (
+        {cargos.map((cargo) =>
+          cargo ? (
           <View key={String(cargo.cargoGuid)} style={styles.cargoRow}>
-            <Text style={styles.cargoTitle}>{cargo.descripcionCargo}</Text>
+            <Text style={styles.cargoTitle}>{cargo.descripcionCargo ?? "-"}</Text>
             <Text style={styles.muted}>
-              Cant: {cargo.cantidad} · ${Number(cargo.precioUnitario ?? 0).toFixed(2)} · Total: $
+              Cant: {cargo.cantidad ?? "-"} · ${Number(cargo.precioUnitario ?? 0).toFixed(2)} · Total: $
               {Number(cargo.totalCargo ?? 0).toFixed(2)}
             </Text>
-            <Text style={styles.muted}>Estado: {cargo.estadoCargo}</Text>
+            <Text style={styles.muted}>Estado: {cargo.estadoCargo ?? "-"}</Text>
             {cargo.estadoCargo === CARGO_ESTADIA_ESTADOS[0] ? (
               <Text
                 style={styles.linkDanger}
@@ -235,7 +241,8 @@ export default function AdminEstadiaDetailScreen({ navigation, route }) {
               </Text>
             ) : null}
           </View>
-        ))}
+          ) : null
+        )}
         {canCheckoutEstadia(estado) ? (
           <Pressable
             style={styles.secondaryButton}

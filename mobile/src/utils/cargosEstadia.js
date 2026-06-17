@@ -4,7 +4,7 @@ import {
   parsePositiveInteger,
 } from "./numeric";
 
-export const validateCargoEstadiaForm = (form) => {
+export const validateCargoEstadiaForm = (form = {}) => {
   const errors = {};
   const cantidad = parsePositiveInteger(form.cantidad);
   const precioUnitario = parseNonNegativeNumber(form.precioUnitario);

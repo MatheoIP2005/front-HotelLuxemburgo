@@ -1,4 +1,5 @@
 import { normalizeCollectionPayload } from "../../../src/shared/utils/api";
+import { withSafeItems } from "./adminCollection";
 
 export const getAuditoriaId = (item) =>
   item?.auditoriaGuid ?? item?.auditoria_guid ?? null;
@@ -67,10 +68,12 @@ export const formatAuditoriaJson = (value) => {
 };
 
 export const normalizeAuditoriaList = (response, params = {}) =>
-  normalizeCollectionPayload(response, {
-    pagina: Number(params?.pagina) || 1,
-    limite: Number(params?.limite) || 50,
-  });
+  withSafeItems(
+    normalizeCollectionPayload(response, {
+      pagina: Number(params?.pagina) || 1,
+      limite: Number(params?.limite) || 50,
+    })
+  );
 
 export const buildAuditoriaQuery = (filters = {}) =>
   Object.fromEntries(

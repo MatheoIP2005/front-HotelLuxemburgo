@@ -1,4 +1,5 @@
 import { normalizeCollectionPayload } from "../../../src/shared/utils/api";
+import { filterSafeList, withSafeItems } from "./adminCollection";
 import { RESERVA_CANALES } from "./constraints";
 import {
   parseNonNegativeInteger,
@@ -22,10 +23,12 @@ export const formatReservaMoney = (value) => {
 };
 
 export const normalizeReservasList = (response, params = {}) =>
-  normalizeCollectionPayload(response, {
-    pagina: Number(params?.pagina) || 1,
-    limite: Number(params?.limite) || 20,
-  });
+  withSafeItems(
+    normalizeCollectionPayload(response, {
+      pagina: Number(params?.pagina) || 1,
+      limite: Number(params?.limite) || 20,
+    })
+  );
 
 export const canConfirmReserva = (estado) => String(estado || "").toUpperCase() === "PEN";
 
@@ -41,7 +44,7 @@ export const isValidGuid = (value) =>
 
 export const getLocalDateMin = getTodayIsoDate;
 
-export const validateReservaLinea = (linea) => {
+export const validateReservaLinea = (linea = {}) => {
   const errors = {};
   const numAdultos = parsePositiveInteger(linea.numAdultos);
   const numNinos = parseNonNegativeInteger(linea.numNinos);
@@ -70,9 +73,11 @@ export const validateReservaLinea = (linea) => {
   return errors;
 };
 
-export const validateReservaForm = (form, { minFechaInicio } = {}) => {
+export const validateReservaForm = (form = {}, { minFechaInicio } = {}) => {
   const formErrors = {};
-  const lineErrors = (form.habitaciones ?? []).map((linea) => validateReservaLinea(linea));
+  const lineErrors = filterSafeList(form.habitaciones).map((linea) =>
+    validateReservaLinea(linea)
+  );
 
   if (!isValidGuid(form.clienteGuid)) {
     formErrors.clienteGuid = "Seleccione un cliente válido.";
@@ -119,14 +124,14 @@ export const validateReservaForm = (form, { minFechaInicio } = {}) => {
   return { formErrors, lineErrors, hasLineErrors };
 };
 
-export const buildReservaLineaPayload = (linea, fechas) => ({
-  habitacionGuid: linea.habitacionGuid,
-  tarifaGuid: linea.tarifaGuid,
+export const buildReservaLineaPayload = (linea = {}, fechas = {}) => ({
+  habitacionGuid: linea.habitacionGuid ?? "",
+  tarifaGuid: linea.tarifaGuid || null,
   fechaInicio: fechas.fechaInicio,
   fechaFin: fechas.fechaFin,
-  numAdultos: Number(linea.numAdultos),
-  numNinos: Number(linea.numNinos),
-  precioNocheAplicado: Number(linea.precioNocheAplicado),
+  numAdultos: Number(linea.numAdultos ?? 1),
+  numNinos: Number(linea.numNinos ?? 0),
+  precioNocheAplicado: Number(linea.precioNocheAplicado ?? 0),
 });
 
 export { addDaysToIsoDate };
