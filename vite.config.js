@@ -42,4 +42,8 @@ function imagenesStaticPlugin() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), imagenesStaticPlugin()],
+  server: {
+    host: true,
+    port: 5173,
+  },
 });

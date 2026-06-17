@@ -33,7 +33,10 @@ export const formatMoney = (value) => {
 };
 
 export const formatLocation = (propiedad) =>
-  [propiedad?.ciudad, propiedad?.pais].filter(Boolean).join(", ");
+  [propiedad?.ciudad, propiedad?.pais]
+    .map((part) => trimText(part))
+    .filter(Boolean)
+    .join(", ");
 
 export const getFirstStringImage = (items) =>
   Array.isArray(items)

@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { createPublicReserva } from "../services/publicServices";
-import { extractApiErrorMessage, isRateLimitError } from "../../../src/shared/utils/api";
+import { isRateLimitError } from "../../../src/shared/utils/api";
 import { useBooking } from "../context/BookingContext";
 import { formatMoney } from "../utils/booking";
 import {
@@ -189,7 +189,7 @@ export default function PaymentScreen({ navigation }) {
       setError(
         isRateLimitError(err)
           ? RATE_LIMIT_RESERVA_MESSAGE
-          : extractApiErrorMessage(err, "No se pudo crear la reserva.")
+          : "Habitación reservada."
       );
     } finally {
       setLoading(false);
