@@ -94,11 +94,11 @@ export const getImagesConfigHint = () => {
   if (getImagesBaseUrl()) return "";
 
   if (Platform.OS === "android") {
-    return 'Define EXPO_PUBLIC_IMAGES_BASE_URL="http://10.0.2.2:5173" (Vite) o usa Expo Go con Metro en la misma red.';
+    return 'Define EXPO_PUBLIC_IMAGES_BASE_URL con la URL publica de Vercel que sirve /imagenes, o usa Expo Go con Metro tunnel.';
   }
 
   if (Platform.OS === "ios") {
-    return 'Define EXPO_PUBLIC_IMAGES_BASE_URL="http://127.0.0.1:5173" (Vite) o la URL web que sirve /imagenes.';
+    return 'Define EXPO_PUBLIC_IMAGES_BASE_URL con la URL publica de Vercel que sirve /imagenes, o usa Expo Go con Metro tunnel.';
   }
 
   return 'Define EXPO_PUBLIC_IMAGES_BASE_URL apuntando al servidor que sirve /imagenes.';

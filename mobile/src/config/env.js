@@ -23,15 +23,14 @@ export const INTERNAL_API_BASE_URL = API_BASE_URL
 export const isApiConfigured = Boolean(API_BASE_URL);
 
 const getPlatformHint = () => {
-  if (Platform.OS === "android") {
-    return "Emulador Android: $env:EXPO_PUBLIC_API_BASE_URL=\"http://10.0.2.2:5000/api/v1\"";
+  const renderGateway =
+    'EXPO_PUBLIC_API_BASE_URL="https://hotellux-gateway.onrender.com/api/v1"';
+
+  if (Platform.OS === "android" || Platform.OS === "ios") {
+    return `Usa el Gateway publico de Render: ${renderGateway}`;
   }
 
-  if (Platform.OS === "ios") {
-    return "iPhone fisico: usa la IP LAN de tu PC, p. ej. $env:EXPO_PUBLIC_API_BASE_URL=\"http://192.168.1.20:5000/api/v1\". Simulador iOS: usa http://127.0.0.1:5000/api/v1";
-  }
-
-  return "Celular fisico: usa la IP LAN de tu PC, p. ej. http://192.168.1.20:5000/api/v1";
+  return `Define ${renderGateway}`;
 };
 
 export const API_CONFIG_WARNING = isApiConfigured

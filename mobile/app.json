@@ -9,7 +9,7 @@
       "**/*"
     ],
     "extra": {
-      "apiBaseUrl": ""
+      "apiBaseUrl": "https://hotellux-gateway.onrender.com/api/v1"
     },
     "ios": {
       "supportsTablet": true,
