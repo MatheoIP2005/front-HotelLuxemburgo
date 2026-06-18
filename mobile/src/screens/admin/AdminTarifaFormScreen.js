@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
+import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import DateField from "../../components/admin/DateField";
 import FormField from "../../components/admin/FormField";
@@ -12,7 +13,7 @@ import { getTiposHabitacion } from "../../services/tiposHabitacion.service";
 import { createTarifa, getTarifa, updateTarifa } from "../../services/tarifas.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { TARIFA_CANALES, TARIFA_ESTADOS } from "../../../../src/utils/constraints";
-import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import { getTodayIsoDate } from "../../utils/booking";
 import {
   sanitizeDecimalInput,
@@ -159,7 +160,10 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
   const onSubmit = async () => {
     const errors = validateTarifaForm(form, isEdit, minLocalDate);
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -196,6 +200,7 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
+      <AdminDetailSection title="Identificación">
       <FormField label="Código" value={form.codigoTarifa} onChangeText={(v) => setField("codigoTarifa", v)} maxLength={TARIFA_LIMITS.codigo} error={fieldErrors.codigoTarifa} />
       <FormField label="Nombre" value={form.nombreTarifa} onChangeText={(v) => setField("nombreTarifa", v)} maxLength={TARIFA_LIMITS.nombre} error={fieldErrors.nombreTarifa} />
       <ScrollSelectField
@@ -218,6 +223,9 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
         options={TARIFA_CANALES.map((c) => ({ value: c, label: c }))}
         onChange={(v) => setField("canalTarifa", v)}
       />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Vigencia y precio">
       <DateField
         label="Fecha inicio"
         value={form.fechaInicio}
@@ -237,6 +245,9 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
       <FormField label="Mín noches" value={form.minNoches} onChangeText={(v) => setField("minNoches", v)} keyboardType="numeric" error={fieldErrors.minNoches} />
       <FormField label="Máx noches" value={form.maxNoches} onChangeText={(v) => setField("maxNoches", v)} keyboardType="numeric" error={fieldErrors.maxNoches} />
       <FormField label="Prioridad" value={form.prioridad} onChangeText={(v) => setField("prioridad", v)} keyboardType="numeric" error={fieldErrors.prioridad} />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Opciones">
       <SwitchField label="Portal público" value={form.permitePortalPublico} onValueChange={(v) => setField("permitePortalPublico", v)} />
       {isEdit ? (
         <SelectField
@@ -246,6 +257,7 @@ export default function AdminTarifaFormScreen({ navigation, route }) {
           onChange={(v) => setField("estadoTarifa", v)}
         />
       ) : null}
+      </AdminDetailSection>
     </AdminFormScreen>
   );
 }

@@ -16,7 +16,7 @@ import { getTarifas } from "../../services/tarifas.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { RESERVA_CANALES } from "../../../../src/utils/constraints";
 import { getClienteDisplayName } from "../../utils/clientes";
-import { normalizeAdminList, pickGuid } from "../../utils/adminCollection";
+import { normalizeAdminList, pickGuid, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
@@ -239,6 +239,7 @@ export default function AdminReservaFormScreen({ navigation }) {
     setFieldErrors(formErrors);
     setLineFieldErrors(lineErrors);
     if (Object.keys(formErrors).length || hasLineErrors) {
+      setError(FORM_VALIDATION_BANNER);
       const firstFormError = formErrors.clienteGuid
         ? "Selecciona un cliente válido."
         : formErrors.sucursalGuid

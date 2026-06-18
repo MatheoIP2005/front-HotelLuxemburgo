@@ -70,6 +70,13 @@ export const validateTipoHabitacionForm = (form = {}) => {
   return errors;
 };
 
+export const getCapacidadFromTipo = (tipo) => {
+  if (!tipo) return 0;
+  const total = Number(tipo.capacidadTotal);
+  if (Number.isFinite(total) && total > 0) return total;
+  return getTipoCapacidadTotal(tipo);
+};
+
 export const buildTipoHabitacionPayload = (form, isEdit = false) => ({
   codigoTipoHabitacion: String(form.codigoTipoHabitacion ?? "").trim(),
   nombreTipoHabitacion: String(form.nombreTipoHabitacion ?? "").trim(),
@@ -79,10 +86,6 @@ export const buildTipoHabitacionPayload = (form, isEdit = false) => ({
   tipoCama: String(form.tipoCama ?? "").trim() || null,
   areaM2: Number(form.areaM2),
   permiteReservaPublica: form.permiteReservaPublica,
-  ...(isEdit
-    ? {
-        estadoTipoHabitacion: form.estadoTipoHabitacion,
-        rowVersion: form.rowVersion,
-      }
-    : {}),
+  estadoTipoHabitacion: form.estadoTipoHabitacion ?? "ACT",
+  ...(isEdit ? { rowVersion: form.rowVersion } : {}),
 });

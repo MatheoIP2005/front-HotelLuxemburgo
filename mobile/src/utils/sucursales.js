@@ -97,6 +97,19 @@ export const validateSucursalForm = (form = {}) => {
     errors.ubicacion = "La ubicación no puede exceder 200 caracteres.";
   }
 
+  const codigoPostal = trim(form.codigoPostal);
+  if (codigoPostal.length > MAX_LENGTHS.sucursal.codigoPostal) {
+    errors.codigoPostal = "El código postal no puede exceder 20 caracteres.";
+  }
+
+  if (form.latitud !== "" && form.latitud != null && Number.isNaN(Number(form.latitud))) {
+    errors.latitud = "La latitud debe ser un número válido.";
+  }
+
+  if (form.longitud !== "" && form.longitud != null && Number.isNaN(Number(form.longitud))) {
+    errors.longitud = "La longitud debe ser un número válido.";
+  }
+
   if (!telefono) {
     errors.telefono = "El teléfono es obligatorio.";
   } else if (!/^\d+$/.test(telefono)) {

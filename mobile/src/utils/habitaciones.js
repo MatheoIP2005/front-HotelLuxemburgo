@@ -4,6 +4,7 @@ import {
   parsePositiveNumber,
 } from "./numeric";
 import { isValidGuid } from "./reservas";
+import { getCapacidadFromTipo } from "./tiposHabitacion";
 
 export const formatHabitacionDisponibleLabel = (habitacion) => {
   if (!habitacion) return "Sin habitación";
@@ -12,7 +13,11 @@ export const formatHabitacionDisponibleLabel = (habitacion) => {
   return tipo ? `Hab. ${numero} · ${tipo}` : `Hab. ${numero}`;
 };
 
-export const validateHabitacionForm = (form = {}, isEdit = false) => {
+export const validateHabitacionForm = (
+  form = {},
+  isEdit = false,
+  { selectedTipo = null } = {}
+) => {
   const errors = {};
   const numeroHabitacion = String(form.numeroHabitacion ?? "").trim();
   const descripcionHabitacion = String(form.descripcionHabitacion ?? "").trim();
@@ -26,6 +31,9 @@ export const validateHabitacionForm = (form = {}, isEdit = false) => {
 
   if (!isValidGuid(form.tipoHabitacionGuid)) {
     errors.tipoHabitacionGuid = "Selecciona un tipo de habitación válido.";
+  } else if (!isEdit && getCapacidadFromTipo(selectedTipo) <= 0) {
+    errors.tipoHabitacionGuid =
+      "El tipo de habitación seleccionado no tiene capacidad configurada.";
   }
 
   if (!numeroHabitacion) {

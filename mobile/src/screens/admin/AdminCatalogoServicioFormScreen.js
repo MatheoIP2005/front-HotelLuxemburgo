@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
+import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
 import ScrollSelectField from "../../components/admin/ScrollSelectField";
@@ -14,7 +15,7 @@ import {
 import { getSucursales } from "../../services/sucursales.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { CATALOGO_ESTADOS, CATALOGO_TIPOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import { sanitizeDecimalInput } from "../../utils/numeric";
 import { sanitizeTimeInput } from "../../utils/text";
 import { validateCatalogoForm } from "../../utils/catalogo";
@@ -121,7 +122,10 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
   const onSubmit = async () => {
     const errors = validateCatalogoForm(form, isEdit);
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -173,6 +177,7 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
+      <AdminDetailSection title="Catálogo">
       <ScrollSelectField
         label="Sucursal"
         value={form.idSucursal}
@@ -192,6 +197,9 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
       <FormField label="Categoría" value={form.categoriaCatalogo} onChangeText={(v) => setField("categoriaCatalogo", v)} maxLength={MAX_LENGTHS.catalogo.categoria} error={fieldErrors.categoriaCatalogo} />
       <FormField label="Descripción" value={form.descripcionCatalogo} onChangeText={(v) => setField("descripcionCatalogo", v)} multiline maxLength={MAX_LENGTHS.catalogo.descripcion} error={fieldErrors.descripcionCatalogo} />
       <FormField label="Precio base" value={form.precioBase} onChangeText={(v) => setField("precioBase", v)} keyboardType="decimal-pad" error={fieldErrors.precioBase} />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Horario y opciones">
       <SwitchField label="Aplica IVA" value={form.aplicaIva} onValueChange={(v) => setField("aplicaIva", v)} />
       <SwitchField label="Disponible 24h" value={form.disponible24h} onValueChange={(v) => setField("disponible24h", v)} />
       {!form.disponible24h ? (
@@ -210,6 +218,7 @@ export default function AdminCatalogoServicioFormScreen({ navigation, route }) {
           error={fieldErrors.estadoCatalogo}
         />
       ) : null}
+      </AdminDetailSection>
     </AdminFormScreen>
   );
 }

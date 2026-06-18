@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
+import DateField from "../../components/admin/DateField";
 import FormField from "../../components/admin/FormField";
 import ScrollSelectField from "../../components/admin/ScrollSelectField";
 import useRequireAuth from "../../hooks/useRequireAuth";
@@ -8,9 +9,10 @@ import { getCatalogo } from "../../services/catalogoServicios.service";
 import { addCargoEstadia, getEstadia } from "../../services/estadias.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import {
   buildCargoEstadiaPayload,
+  getFechaConsumoBounds,
   validateCargoEstadiaForm,
 } from "../../utils/cargosEstadia";
 import { formatCatalogoLabel } from "../../utils/catalogo";
@@ -18,8 +20,12 @@ import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
 } from "../../utils/numeric";
+import { sanitizeTimeInput } from "../../utils/text";
+
 const EMPTY_FORM = {
   catalogoGuid: "",
+  fechaConsumo: "",
+  fechaConsumoHora: "",
   descripcionCargo: "",
   cantidad: "1",
   precioUnitario: "",
@@ -37,7 +43,12 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
-    if (bootstrapping || !isAuthenticated || !estadiaId) return;
+    if (bootstrapping || !isAuthenticated) return;
+    if (!estadiaId) {
+      setLoading(false);
+      setError("No se indicó la estadía para registrar el cargo.");
+      return;
+    }
     const load = async () => {
       setLoading(true);
       try {
@@ -66,10 +77,16 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     [catalogo]
   );
 
+  const fechaConsumoBounds = useMemo(
+    () => getFechaConsumoBounds(estadia),
+    [estadia]
+  );
+
   const setField = (key, value) => {
     const numericSanitizers = {
       cantidad: sanitizeOptionalDigits,
       precioUnitario: sanitizeDecimalInput,
+      fechaConsumoHora: sanitizeTimeInput,
     };
     const nextValue = numericSanitizers[key] ? numericSanitizers[key](value) : value;
     setForm((prev) => ({ ...prev, [key]: nextValue }));
@@ -90,12 +107,20 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     }));
   };
 
-  const validate = () => validateCargoEstadiaForm(form);
+  const validate = () => validateCargoEstadiaForm(form, { estadia });
 
   const onSubmit = async () => {
+    if (!estadiaId) {
+      setError("No se indicó la estadía para registrar el cargo.");
+      return;
+    }
+
     const errors = validate();
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     if (estadia?.estadoEstadia !== "ACT") {
       setError("Solo se pueden registrar cargos sobre estadías activas.");
@@ -125,6 +150,16 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
     );
   }
 
+  if (!estadiaId) {
+    return (
+      <AdminFormScreen
+        title="Nuevo cargo de estadía"
+        error={error || "No se indicó la estadía para registrar el cargo."}
+        onCancel={() => navigation.goBack()}
+      />
+    );
+  }
+
   return (
     <AdminFormScreen
       title="Nuevo cargo de estadía"
@@ -141,6 +176,23 @@ export default function AdminCargoEstadiaFormScreen({ navigation, route }) {
         options={[{ value: "", label: "Seleccionar" }, ...catalogoOptions]}
         onChange={onSelectCatalogo}
         error={fieldErrors.catalogoGuid}
+      />
+      <DateField
+        label="Fecha consumo"
+        value={form.fechaConsumo}
+        onChange={(value) => setField("fechaConsumo", value)}
+        minDate={fechaConsumoBounds.minDate}
+        maxDate={fechaConsumoBounds.maxDate}
+        error={fieldErrors.fechaConsumo}
+      />
+      <FormField
+        label="Hora consumo"
+        value={form.fechaConsumoHora}
+        onChangeText={(v) => setField("fechaConsumoHora", v)}
+        placeholder="HH:MM"
+        maxLength={5}
+        helpText="Opcional. Si no indicas hora, se usa 00:00."
+        error={fieldErrors.fechaConsumoHora}
       />
       <FormField
         label="Descripción"

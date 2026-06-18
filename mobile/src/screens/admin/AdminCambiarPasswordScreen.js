@@ -5,6 +5,7 @@ import FormField from "../../components/admin/FormField";
 import useRequireAuth from "../../hooks/useRequireAuth";
 import { cambiarPassword } from "../../services/auth.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
+import { FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import { colors } from "../../styles/theme";
 
 const EMPTY_FORM = {
@@ -41,7 +42,10 @@ export default function AdminCambiarPasswordScreen({ navigation }) {
   const onSubmit = async () => {
     const errors = validate();
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");

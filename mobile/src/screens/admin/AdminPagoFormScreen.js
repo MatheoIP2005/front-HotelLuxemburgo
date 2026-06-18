@@ -8,7 +8,7 @@ import { getFacturas } from "../../services/facturas.service";
 import { createPago } from "../../services/pagos.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { PAGO_METODOS } from "../../../../src/utils/constraints";
-import { normalizeAdminList } from "../../utils/adminCollection";
+import { normalizeAdminList, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import { getFacturaId } from "../../utils/facturas";
 import { validatePagoForm } from "../../utils/pagos";
 import { sanitizeDecimalInput } from "../../utils/numeric";
@@ -117,7 +117,10 @@ export default function AdminPagoFormScreen({ navigation, route }) {
   const onSubmit = async () => {
     const errors = validate();
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -160,6 +163,25 @@ export default function AdminPagoFormScreen({ navigation, route }) {
         label="Estado factura"
         value={selectedFactura?.estado ?? "N/A"}
         editable={false}
+        helpText="Solo se pueden registrar pagos sobre facturas emitidas."
+      />
+
+      <FormField
+        label="Número de factura"
+        value={selectedFactura?.numeroFactura?.trim() || "N/A"}
+        editable={false}
+        helpText="Se completa automáticamente al elegir una factura."
+      />
+
+      <FormField
+        label="Total factura"
+        value={
+          selectedFactura?.total != null
+            ? `$${Number(selectedFactura.total).toFixed(2)}`
+            : "N/A"
+        }
+        editable={false}
+        helpText="Monto total emitido en la factura seleccionada."
       />
 
       <FormField

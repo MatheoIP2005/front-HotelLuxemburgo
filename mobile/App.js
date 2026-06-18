@@ -27,9 +27,7 @@ import AdminValoracionDetailScreen from "./src/screens/admin/AdminValoracionDeta
 import AdminFacturaDetailScreen from "./src/screens/admin/AdminFacturaDetailScreen";
 import AdminPagoFormScreen from "./src/screens/admin/AdminPagoFormScreen";
 import AdminUsuarioFormScreen from "./src/screens/admin/AdminUsuarioFormScreen";
-import AdminUsuarioRolesScreen from "./src/screens/admin/AdminUsuarioRolesScreen";
 import AdminRolFormScreen from "./src/screens/admin/AdminRolFormScreen";
-import AdminRolPermisosScreen from "./src/screens/admin/AdminRolPermisosScreen";
 import AdminAuditoriaDetailScreen from "./src/screens/admin/AdminAuditoriaDetailScreen";
 import { colors } from "./src/styles/theme";
 
@@ -166,19 +164,9 @@ export default function App() {
               options={{ title: "Usuario" }}
             />
             <Stack.Screen
-              name="AdminUsuarioRoles"
-              component={AdminUsuarioRolesScreen}
-              options={{ title: "Roles del usuario" }}
-            />
-            <Stack.Screen
               name="AdminRolForm"
               component={AdminRolFormScreen}
               options={{ title: "Rol" }}
-            />
-            <Stack.Screen
-              name="AdminRolPermisos"
-              component={AdminRolPermisosScreen}
-              options={{ title: "Permisos del rol" }}
             />
             <Stack.Screen
               name="AdminAuditoriaDetail"

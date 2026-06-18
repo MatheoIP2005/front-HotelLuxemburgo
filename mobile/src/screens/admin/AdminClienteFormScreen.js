@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert } from "react-native";
+import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
 import SelectField from "../../components/admin/SelectField";
@@ -18,7 +19,7 @@ import {
   MAX_LENGTHS,
 } from "../../../../src/utils/constraints";
 import { validateClienteForm, resolveClienteFieldUpdate } from "../../utils/clientes";
-import { normalizeAdminList, ensureLoadedEntity } from "../../utils/adminCollection";
+import { normalizeAdminList, ensureLoadedEntity, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 
 const EMPTY_FORM = {
   tipoIdentificacion: "CED",
@@ -77,7 +78,10 @@ export default function AdminClienteFormScreen({ navigation, route }) {
   const onSubmit = async () => {
     const errors = validateClienteForm(form, isEdit);
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -109,6 +113,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
             ...prev,
             numeroIdentificacion: `La identificación '${numero}' ya está registrada.`,
           }));
+          setError(FORM_VALIDATION_BANNER);
           return;
         }
         if (
@@ -118,6 +123,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
             ...prev,
             correo: `El correo '${payload.correo}' ya está registrado.`,
           }));
+          setError(FORM_VALIDATION_BANNER);
           return;
         }
         await createCliente(payload);
@@ -155,6 +161,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
+      <AdminDetailSection title="Información personal">
       <SelectField
         label="Tipo identificación"
         value={form.tipoIdentificacion}
@@ -194,6 +201,9 @@ export default function AdminClienteFormScreen({ navigation, route }) {
           error={fieldErrors.apellidos}
         />
       ) : null}
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Contacto">
       <FormField
         label="Correo"
         value={form.correo}
@@ -230,6 +240,7 @@ export default function AdminClienteFormScreen({ navigation, route }) {
           onChange={(v) => setField("estado", v)}
         />
       ) : null}
+      </AdminDetailSection>
     </AdminFormScreen>
   );
 }

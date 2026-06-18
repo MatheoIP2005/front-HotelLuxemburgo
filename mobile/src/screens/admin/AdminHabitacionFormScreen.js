@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
+import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
 import ScrollSelectField from "../../components/admin/ScrollSelectField";
@@ -14,11 +15,12 @@ import { getSucursales } from "../../services/sucursales.service";
 import { getTiposHabitacion } from "../../services/tiposHabitacion.service";
 import { extractApiErrorMessage } from "../../../../src/shared/utils/api";
 import { HABITACION_ESTADOS, MAX_LENGTHS } from "../../../../src/utils/constraints";
-import { normalizeAdminList, pickGuid, ensureLoadedEntity } from "../../utils/adminCollection";
+import { normalizeAdminList, pickGuid, ensureLoadedEntity, FORM_VALIDATION_BANNER } from "../../utils/adminCollection";
 import {
   buildHabitacionPayload,
   validateHabitacionForm,
 } from "../../utils/habitaciones";
+import { getCapacidadFromTipo } from "../../utils/tiposHabitacion";
 import {
   sanitizeDecimalInput,
   sanitizeOptionalDigits,
@@ -65,6 +67,26 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
       })),
     [tipos]
   );
+
+  const selectedTipo = useMemo(
+    () =>
+      tipos.find(
+        (tipo) =>
+          pickGuid(tipo, "tipoHabitacionGuid", "tipo_habitacion_guid") === form.tipoHabitacionGuid
+      ) ?? null,
+    [tipos, form.tipoHabitacionGuid]
+  );
+
+  const capacidadTipoLabel = useMemo(() => {
+    if (!selectedTipo) return "";
+    const adultos = Number(selectedTipo.capacidadAdultos) || 0;
+    const ninos = Number(selectedTipo.capacidadNinos) || 0;
+    if (adultos || ninos) {
+      return `${adultos} adultos / ${ninos} niños`;
+    }
+    const total = getCapacidadFromTipo(selectedTipo);
+    return total > 0 ? String(total) : "";
+  }, [selectedTipo]);
 
   useEffect(() => {
     if (bootstrapping || !isAuthenticated) return;
@@ -119,9 +141,12 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
   };
 
   const onSubmit = async () => {
-    const errors = validateHabitacionForm(form, isEdit);
+    const errors = validateHabitacionForm(form, isEdit, { selectedTipo });
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -157,12 +182,14 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
       saving={saving}
       error={error}
     >
+      <AdminDetailSection title="Relaciones">
       <ScrollSelectField
         label="Sucursal"
         value={form.sucursalGuid}
         options={[{ value: "", label: "Seleccionar" }, ...sucursalOptions]}
         onChange={(v) => setField("sucursalGuid", v)}
         error={fieldErrors.sucursalGuid}
+        disabled={isEdit}
       />
       <ScrollSelectField
         label="Tipo habitación"
@@ -170,7 +197,17 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
         options={[{ value: "", label: "Seleccionar" }, ...tipoOptions]}
         onChange={(v) => setField("tipoHabitacionGuid", v)}
         error={fieldErrors.tipoHabitacionGuid}
+        disabled={isEdit}
       />
+      <FormField
+        label="Capacidad del tipo"
+        value={capacidadTipoLabel}
+        editable={false}
+        helpText="Se calcula según el tipo de habitación seleccionado."
+      />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Habitación">
       <FormField
         label="Número"
         value={form.numeroHabitacion}
@@ -202,6 +239,7 @@ export default function AdminHabitacionFormScreen({ navigation, route }) {
           onChange={(v) => setField("estadoHabitacion", v)}
         />
       ) : null}
+      </AdminDetailSection>
     </AdminFormScreen>
   );
 }

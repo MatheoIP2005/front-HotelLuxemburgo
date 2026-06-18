@@ -132,10 +132,6 @@ export default function AdminUsuariosScreen({ navigation }) {
             label: "Editar",
             onPress: () => navigation.navigate("AdminUsuarioForm", { id }),
           },
-          {
-            label: "Roles",
-            onPress: () => navigation.navigate("AdminUsuarioRoles", { id }),
-          },
         ];
         if (item.estadoUsuario === "ACT") {
           actions.push({

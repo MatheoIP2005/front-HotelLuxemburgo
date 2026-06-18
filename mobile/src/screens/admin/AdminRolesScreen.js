@@ -84,10 +84,6 @@ export default function AdminRolesScreen({ navigation }) {
             label: "Editar",
             onPress: () => navigation.navigate("AdminRolForm", { id }),
           },
-          {
-            label: "Permisos",
-            onPress: () => navigation.navigate("AdminRolPermisos", { id }),
-          },
         ];
         if (item.estadoRol === "ACT") {
           actions.push({

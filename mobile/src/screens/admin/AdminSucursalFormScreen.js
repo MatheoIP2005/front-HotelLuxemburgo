@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import AdminDetailSection from "../../components/admin/AdminDetailSection";
 import AdminFormScreen from "../../components/admin/AdminFormScreen";
 import FormField from "../../components/admin/FormField";
+import ImagePreview from "../../components/admin/ImagePreview";
 import SelectField from "../../components/admin/SelectField";
 import SwitchField from "../../components/admin/SwitchField";
 import useRequireAuth from "../../hooks/useRequireAuth";
@@ -25,10 +26,45 @@ import {
   SUCURSAL_TIPO_ALOJAMIENTO_OPTIONS,
 } from "../../../../src/utils/constraints";
 import { colors } from "../../styles/theme";
-import { sanitizeOptionalDigits } from "../../utils/numeric";
+import { sanitizeOptionalDigits, sanitizeDecimalInput } from "../../utils/numeric";
 import { sanitizePhoneDigits, sanitizeTimeInput } from "../../utils/text";
 import { validateSucursalForm } from "../../utils/sucursales";
-import { ensureLoadedEntity, filterSafeList } from "../../utils/adminCollection";
+import {
+  ensureLoadedEntity,
+  filterSafeList,
+  FORM_VALIDATION_BANNER,
+  pickGuid,
+} from "../../utils/adminCollection";
+
+const trimText = (value) => String(value ?? "").trim();
+
+const buildImagePayload = (imagenForm) => {
+  const urlImagen = trimText(imagenForm.urlImagen);
+  const descripcionImagen = trimText(imagenForm.descripcionImagen);
+  const ordenVisualizacion = Number(imagenForm.ordenVisualizacion || 1);
+
+  if (!urlImagen) {
+    throw new Error("La URL de la imagen es obligatoria.");
+  }
+  if (urlImagen.length > MAX_LENGTHS.imagen.url) {
+    throw new Error(`La URL no puede exceder ${MAX_LENGTHS.imagen.url} caracteres.`);
+  }
+  if (descripcionImagen.length > MAX_LENGTHS.imagen.descripcion) {
+    throw new Error(
+      `La descripción no puede exceder ${MAX_LENGTHS.imagen.descripcion} caracteres.`
+    );
+  }
+  if (!Number.isFinite(ordenVisualizacion) || ordenVisualizacion <= 0) {
+    throw new Error("El orden de visualización debe ser mayor a cero.");
+  }
+
+  return {
+    urlImagen,
+    descripcionImagen: descripcionImagen || null,
+    ordenVisualizacion,
+    esPrincipal: imagenForm.esPrincipal,
+  };
+};
 
 const EMPTY_FORM = {
   codigoSucursal: "",
@@ -43,8 +79,11 @@ const EMPTY_FORM = {
   ciudad: "",
   direccion: "",
   ubicacion: "",
+  codigoPostal: "",
   telefono: "",
   correo: "",
+  latitud: "",
+  longitud: "",
   horaCheckin: "15:00",
   horaCheckout: "12:00",
   checkinAnticipado: false,
@@ -109,8 +148,11 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
           ciudad: data.ciudad ?? "",
           direccion: data.direccion ?? "",
           ubicacion: data.ubicacion ?? "",
+          codigoPostal: data.codigoPostal ?? "",
           telefono: data.telefono ?? "",
           correo: data.correo ?? "",
+          latitud: data.latitud != null ? String(data.latitud) : "",
+          longitud: data.longitud != null ? String(data.longitud) : "",
           horaCheckin: data.horaCheckin ?? "15:00",
           horaCheckout: data.horaCheckout ?? "12:00",
           checkinAnticipado: Boolean(data.checkinAnticipado),
@@ -141,6 +183,8 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         nextValue = sanitizeTimeInput(value);
       } else if (key === "estrellas" || key === "edadMinimaHuesped") {
         nextValue = sanitizeOptionalDigits(value);
+      } else if (key === "latitud" || key === "longitud") {
+        nextValue = sanitizeDecimalInput(value);
       }
       return { ...prev, [key]: nextValue };
     });
@@ -149,7 +193,10 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
   const onSubmit = async () => {
     const errors = validateSucursalForm(form);
     setFieldErrors(errors);
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      setError(FORM_VALIDATION_BANNER);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -158,13 +205,42 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         ...form,
         estrellas: form.estrellas ? Number(form.estrellas) : null,
         edadMinimaHuesped: form.edadMinimaHuesped ? Number(form.edadMinimaHuesped) : null,
+        codigoPostal: trimText(form.codigoPostal) || null,
+        latitud: trimText(form.latitud) !== "" ? Number(form.latitud) : null,
+        longitud: trimText(form.longitud) !== "" ? Number(form.longitud) : null,
       };
       if (isEdit) {
         await updateSucursal(id, payload);
         Alert.alert("Guardado", "Sucursal actualizada.");
       } else {
-        await createSucursal(payload);
-        Alert.alert("Guardado", "Sucursal creada.");
+        const createdSucursal = await createSucursal(payload);
+        const createdSucursalGuid = pickGuid(createdSucursal, "sucursalGuid", "sucursal_guid");
+
+        if (imagenes.length > 0 && !createdSucursalGuid) {
+          throw new Error(
+            "La sucursal fue creada, pero no se pudo obtener su GUID para registrar las imágenes."
+          );
+        }
+
+        if (createdSucursalGuid && imagenes.length > 0) {
+          await Promise.all(
+            imagenes.map((imagen) =>
+              createSucursalImagen(createdSucursalGuid, {
+                urlImagen: imagen.urlImagen,
+                descripcionImagen: imagen.descripcionImagen,
+                ordenVisualizacion: imagen.ordenVisualizacion,
+                esPrincipal: imagen.esPrincipal,
+              })
+            )
+          );
+        }
+
+        Alert.alert(
+          "Guardado",
+          imagenes.length > 0
+            ? "Sucursal creada con sus imágenes."
+            : "Sucursal creada."
+        );
       }
       navigation.goBack();
     } catch (err) {
@@ -175,19 +251,27 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
   };
 
   const onAddImagen = async () => {
-    if (!isEdit) {
-      setError("Guarda la sucursal antes de agregar imágenes.");
-      return;
-    }
+    setError("");
     try {
-      await createSucursalImagen(id, {
-        urlImagen: imagenForm.urlImagen,
-        descripcionImagen: imagenForm.descripcionImagen,
-        ordenVisualizacion: Number(imagenForm.ordenVisualizacion) || 1,
-        esPrincipal: imagenForm.esPrincipal,
-      });
-      const imgs = await getSucursalImagenes(id);
-      setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
+      const payload = buildImagePayload(imagenForm);
+
+      if (isEdit) {
+        await createSucursalImagen(id, payload);
+        const imgs = await getSucursalImagenes(id);
+        setImagenes(filterSafeList(Array.isArray(imgs) ? imgs : imgs?.items ?? []));
+      } else {
+        const stagedImage = {
+          ...payload,
+          tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        };
+        setImagenes((prev) => [
+          ...prev.map((imagen) =>
+            stagedImage.esPrincipal ? { ...imagen, esPrincipal: false } : imagen
+          ),
+          stagedImage,
+        ]);
+      }
+
       setImagenForm(EMPTY_IMAGE);
     } catch (err) {
       setError(extractApiErrorMessage(err, "No se pudo agregar la imagen."));
@@ -231,6 +315,10 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
   };
 
   const onDeleteImagen = async (imageId) => {
+    if (!isEdit) {
+      setImagenes((prev) => prev.filter((img) => img.tempId !== imageId));
+      return;
+    }
     try {
       await deleteSucursalImagen(id, imageId);
       setImagenes((prev) =>
@@ -254,13 +342,14 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
   return (
     <AdminFormScreen
       title={isEdit ? "Editar sucursal" : "Nueva sucursal"}
-      subtitle="Políticas incluidas en el formulario (check-in, mascotas, etc.)"
+      subtitle="Completa la información general, ubicación y políticas de la sucursal."
       submitLabel={isEdit ? "Actualizar" : "Crear"}
       onSubmit={onSubmit}
       onCancel={() => navigation.goBack()}
       saving={saving}
       error={error}
     >
+      <AdminDetailSection title="Información general">
       <FormField
         label="Código"
         value={form.codigoSucursal}
@@ -312,13 +401,22 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
         maxLength={MAX_LENGTHS.sucursal.descripcion}
         error={fieldErrors.descripcionSucursal}
       />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Ubicación">
       <FormField label="País" value={form.pais} onChangeText={(v) => setField("pais", v)} maxLength={MAX_LENGTHS.sucursal.pais} error={fieldErrors.pais} />
       <FormField label="Provincia" value={form.provincia} onChangeText={(v) => setField("provincia", v)} maxLength={MAX_LENGTHS.sucursal.provincia} error={fieldErrors.provincia} />
       <FormField label="Ciudad" value={form.ciudad} onChangeText={(v) => setField("ciudad", v)} maxLength={MAX_LENGTHS.sucursal.ciudad} error={fieldErrors.ciudad} />
       <FormField label="Dirección" value={form.direccion} onChangeText={(v) => setField("direccion", v)} maxLength={MAX_LENGTHS.sucursal.direccion} error={fieldErrors.direccion} />
       <FormField label="Ubicación" value={form.ubicacion} onChangeText={(v) => setField("ubicacion", v)} maxLength={MAX_LENGTHS.sucursal.ubicacion} error={fieldErrors.ubicacion} />
+      <FormField label="Código postal" value={form.codigoPostal} onChangeText={(v) => setField("codigoPostal", v)} maxLength={MAX_LENGTHS.sucursal.codigoPostal} error={fieldErrors.codigoPostal} />
       <FormField label="Teléfono" value={form.telefono} onChangeText={(v) => setField("telefono", v)} keyboardType="phone-pad" inputMode="numeric" maxLength={MAX_LENGTHS.sucursal.telefono} error={fieldErrors.telefono} />
       <FormField label="Correo" value={form.correo} onChangeText={(v) => setField("correo", v)} keyboardType="email-address" autoCapitalize="none" maxLength={MAX_LENGTHS.sucursal.correo} error={fieldErrors.correo} />
+      <FormField label="Latitud" value={form.latitud} onChangeText={(v) => setField("latitud", v)} keyboardType="decimal-pad" error={fieldErrors.latitud} />
+      <FormField label="Longitud" value={form.longitud} onChangeText={(v) => setField("longitud", v)} keyboardType="decimal-pad" error={fieldErrors.longitud} />
+      </AdminDetailSection>
+
+      <AdminDetailSection title="Políticas">
       <FormField label="Hora check-in" value={form.horaCheckin} onChangeText={(v) => setField("horaCheckin", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaCheckin} />
       <FormField label="Hora check-out" value={form.horaCheckout} onChangeText={(v) => setField("horaCheckout", v)} placeholder="HH:MM" maxLength={5} error={fieldErrors.horaCheckout} />
       <SwitchField label="Check-in anticipado" value={form.checkinAnticipado} onValueChange={(v) => setField("checkinAnticipado", v)} />
@@ -327,65 +425,92 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
       <SwitchField label="Permite mascotas" value={form.permiteMascotas} onValueChange={(v) => setField("permiteMascotas", v)} />
       <SwitchField label="Se permite fumar" value={form.sePermiteFumar} onValueChange={(v) => setField("sePermiteFumar", v)} />
       <FormField label="Edad mínima huésped" value={form.edadMinimaHuesped} onChangeText={(v) => setField("edadMinimaHuesped", v)} keyboardType="numeric" inputMode="numeric" error={fieldErrors.edadMinimaHuesped} />
+      </AdminDetailSection>
 
       <AdminDetailSection title="Imágenes">
+        {imagenes.length === 0 ? (
+          <Text style={styles.muted}>
+            {isEdit
+              ? "No hay imágenes registradas."
+              : "No hay imágenes preparadas. Puedes agregarlas antes de crear la sucursal."}
+          </Text>
+        ) : null}
         {imagenes.map((img, index) =>
           img ? (
-          <View key={String(img.idSucursalImagen ?? img.urlImagen ?? index)} style={styles.imageRow}>
-            <Text style={styles.imageUrl} numberOfLines={2}>
-              {img.urlImagen ?? "-"}
-            </Text>
-            {isEdit ? (
+          <View
+            key={String(img.idSucursalImagen ?? img.tempId ?? img.urlImagen ?? index)}
+            style={styles.imageRow}
+          >
+            <ImagePreview uri={img.urlImagen} size={72} />
+            <View style={styles.imageMeta}>
+              <Text style={styles.imageUrl} numberOfLines={2}>
+                {img.urlImagen ?? "-"}
+              </Text>
+              {img.descripcionImagen ? (
+                <Text style={styles.imageDesc} numberOfLines={1}>
+                  {img.descripcionImagen}
+                </Text>
+              ) : null}
               <Text
                 style={styles.deleteLink}
-                onPress={() => onDeleteImagen(img.idSucursalImagen ?? img.id)}
+                onPress={() =>
+                  onDeleteImagen(
+                    isEdit ? img.idSucursalImagen ?? img.id : img.tempId
+                  )
+                }
               >
                 Eliminar
               </Text>
-            ) : null}
+            </View>
           </View>
           ) : null
         )}
-        {isEdit ? (
-          <>
-            <Pressable
-              style={[styles.selectImageBtn, uploadingImage && styles.disabledBtn]}
-              onPress={onSelectImage}
-              disabled={uploadingImage}
-            >
-              <Text style={styles.selectImageText}>
-                {uploadingImage ? "Subiendo imagen..." : "Seleccionar imagen"}
-              </Text>
-            </Pressable>
-            <FormField
-              label="URL imagen"
-              value={imagenForm.urlImagen}
-              onChangeText={(v) => setImagenForm((p) => ({ ...p, urlImagen: v }))}
-            />
-            <FormField
-              label="Descripción"
-              value={imagenForm.descripcionImagen}
-              onChangeText={(v) => setImagenForm((p) => ({ ...p, descripcionImagen: v }))}
-            />
-            <FormField
-              label="Orden"
-              value={imagenForm.ordenVisualizacion}
-              onChangeText={(v) => setImagenForm((p) => ({ ...p, ordenVisualizacion: v }))}
-              keyboardType="numeric"
-            />
-            <SwitchField
-              label="Principal"
-              value={imagenForm.esPrincipal}
-              onValueChange={(v) => setImagenForm((p) => ({ ...p, esPrincipal: v }))}
-            />
-            <Text
-              style={[styles.addImageLink, uploadingImage && styles.disabledLink]}
-              onPress={uploadingImage ? undefined : onAddImagen}
-            >
-              Agregar imagen
-            </Text>
-          </>
-        ) : null}
+        <Pressable
+          style={[styles.selectImageBtn, uploadingImage && styles.disabledBtn]}
+          onPress={onSelectImage}
+          disabled={uploadingImage}
+        >
+          <Text style={styles.selectImageText}>
+            {uploadingImage ? "Subiendo imagen..." : "Seleccionar imagen"}
+          </Text>
+        </Pressable>
+        <Text style={styles.muted}>
+          {isEdit
+            ? "Se sube a Cloudinary si el backend tiene configuradas las variables."
+            : "Puedes preparar imágenes; se guardarán al crear la sucursal."}
+        </Text>
+        <FormField
+          label="URL imagen"
+          value={imagenForm.urlImagen}
+          onChangeText={(v) => setImagenForm((p) => ({ ...p, urlImagen: v }))}
+          autoCapitalize="none"
+          maxLength={MAX_LENGTHS.imagen.url}
+        />
+        {imagenForm.urlImagen ? <ImagePreview uri={imagenForm.urlImagen} size={120} /> : null}
+        <FormField
+          label="Descripción"
+          value={imagenForm.descripcionImagen}
+          onChangeText={(v) => setImagenForm((p) => ({ ...p, descripcionImagen: v }))}
+          maxLength={MAX_LENGTHS.imagen.descripcion}
+        />
+        <FormField
+          label="Orden"
+          value={imagenForm.ordenVisualizacion}
+          onChangeText={(v) => setImagenForm((p) => ({ ...p, ordenVisualizacion: v }))}
+          keyboardType="numeric"
+        />
+        <SwitchField
+          label="Principal"
+          value={imagenForm.esPrincipal}
+          onValueChange={(v) => setImagenForm((p) => ({ ...p, esPrincipal: v }))}
+        />
+        <Pressable
+          style={[styles.addImageBtn, uploadingImage && styles.disabledBtn]}
+          onPress={onAddImagen}
+          disabled={uploadingImage}
+        >
+          <Text style={styles.addImageText}>Agregar imagen</Text>
+        </Pressable>
       </AdminDetailSection>
     </AdminFormScreen>
   );
@@ -394,8 +519,10 @@ export default function AdminSucursalFormScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: "700" },
-  imageRow: { gap: 4, marginBottom: 8 },
+  imageRow: { flexDirection: "row", gap: 12, marginBottom: 12, alignItems: "flex-start" },
+  imageMeta: { flex: 1, gap: 4 },
   imageUrl: { color: colors.text, fontSize: 12 },
+  imageDesc: { color: colors.muted, fontSize: 11 },
   deleteLink: { color: colors.danger, fontWeight: "700" },
   selectImageBtn: {
     minHeight: 44,
@@ -407,6 +534,14 @@ const styles = StyleSheet.create({
   },
   selectImageText: { color: colors.onPrimary, fontWeight: "800" },
   disabledBtn: { opacity: 0.6 },
-  addImageLink: { color: colors.primary, fontWeight: "800", marginTop: 8 },
-  disabledLink: { opacity: 0.6 },
+  addImageBtn: {
+    minHeight: 44,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginTop: 8,
+  },
+  addImageText: { color: colors.primary, fontWeight: "800" },
 });

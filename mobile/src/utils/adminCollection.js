@@ -35,6 +35,8 @@ export const confirmAdminAction = (title, message) =>
     ]);
   });
 
+export const FORM_VALIDATION_BANNER = "Revisa los campos marcados en rojo.";
+
 export const pickGuid = (item, ...keys) => {
   for (const key of keys) {
     const value = item?.[key];
