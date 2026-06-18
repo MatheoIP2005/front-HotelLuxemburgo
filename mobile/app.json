@@ -5,7 +5,9 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "extra": {
       "apiBaseUrl": ""
     },
@@ -29,7 +31,8 @@
         {
           "photosPermission": "La app accede a tu galería para subir imágenes de sucursales y habitaciones."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
