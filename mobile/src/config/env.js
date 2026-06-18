@@ -28,7 +28,7 @@ const getPlatformHint = () => {
   }
 
   if (Platform.OS === "ios") {
-    return "Simulador iOS: $env:EXPO_PUBLIC_API_BASE_URL=\"http://127.0.0.1:5000/api/v1\"";
+    return "iPhone fisico: usa la IP LAN de tu PC, p. ej. $env:EXPO_PUBLIC_API_BASE_URL=\"http://192.168.1.20:5000/api/v1\". Simulador iOS: usa http://127.0.0.1:5000/api/v1";
   }
 
   return "Celular fisico: usa la IP LAN de tu PC, p. ej. http://192.168.1.20:5000/api/v1";
